@@ -3,19 +3,21 @@
 #include "pins_arduino.h"
 
 #define TASTER 19
-SSD1306Wire display(0x3c, SDA_OLED, SCL_OLED); // ADDRESS, SDA, SCL
+#define DEBOUNCE_DELAY 100
 
-void VextON(void) {
+SSD1306Wire display(0x3c, SDA_OLED, SCL_OLED);
+
+void VextON() {
   pinMode(Vext, OUTPUT);
   digitalWrite(Vext, LOW);
 }
 
-void VextOFF(void) {
+void VextOFF() {
   pinMode(Vext, OUTPUT);
   digitalWrite(Vext, HIGH);
 }
 
-void displayReset(void) {
+void displayReset() {
   pinMode(RST_OLED, OUTPUT);
   digitalWrite(RST_OLED, HIGH);
   delay(1);
@@ -28,19 +30,19 @@ void displayReset(void) {
 void setup() {
   Serial.begin(115200);
   while (!Serial) delay(10);
-  Serial.println("Start vor Display-Initialisierung...");
+  Serial.println("Starting Absaugungssensor...");
 
-  // Heltec-spezifische Display-Steuerung
   VextON();
   displayReset();
 
-  // Display initialisieren
-  display.init();
+  if (!display.init()) {
+    Serial.println("OLED initialization failed!");
+    while (1) delay(100);
+  }
   display.flipScreenVertically();
   display.setFont(ArialMT_Plain_10);
-  Serial.println("Display-Initialisierung abgeschlossen");
+  Serial.println("OLED initialized");
 
-  // Taster konfigurieren
   pinMode(TASTER, INPUT_PULLUP);
 }
 
@@ -50,7 +52,6 @@ void loop() {
   static int lastStableState = HIGH;
   static int lastReading = HIGH;
   static unsigned long lastDebounceTime = 0;
-  const unsigned long debounceDelay = 100;
 
   // Sekundenzähler aktualisieren
   if (millis() - lastSecond >= 1000) {
@@ -58,16 +59,16 @@ void loop() {
     lastSecond = millis();
   }
 
-  // Zustand des Tasters lesen (mit Entprellung)
+  // Tasterstatus mit Entprellung lesen
   int reading = digitalRead(TASTER);
   if (reading != lastReading) {
     lastDebounceTime = millis();
     lastReading = reading;
   }
-  if ((millis() - lastDebounceTime) > debounceDelay) {
+  if ((millis() - lastDebounceTime) > DEBOUNCE_DELAY) {
     int currentState = digitalRead(TASTER);
     if (currentState != lastStableState) {
-      Serial.print("GPIO 19 Zustand stabil geändert: ");
+      Serial.print("GPIO 19 state changed: ");
       Serial.println(currentState);
       lastStableState = currentState;
       lastReading = currentState;
@@ -75,11 +76,13 @@ void loop() {
   }
 
   // Display aktualisieren
+  char buffer[20];
   display.clear();
   display.setTextAlignment(TEXT_ALIGN_LEFT);
   display.drawString(0, 0, "Board laeuft...");
-  display.drawString(0, 15, "Sekunden: " + String(seconds));
-  display.drawString(0, 30, "Taster: " + String(digitalRead(TASTER) == HIGH ? "OFF" : "ON"));
+  sprintf(buffer, "Sekunden: %lu", seconds);
+  display.drawString(0, 15, buffer);
+  display.drawString(0, 30, digitalRead(TASTER) == HIGH ? "Taster: OFF" : "Taster: ON");
   display.display();
 
   delay(100);
