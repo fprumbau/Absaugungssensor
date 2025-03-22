@@ -33,6 +33,7 @@ String tasterLine = "Taster: OFF";
 String sendLine = "";
 unsigned long lastPacketTime = 0;  // Zeit des letzten empfangenen Pakets
 const int8_t TXpower = 10;  // 10 dBm – Sendeleistung
+int messageCounter = 1;  // Laufender Zähler für Nachrichten
 
 // Taster-Entprellung
 unsigned long lastDebounceTime = 0;  // Zeit des letzten Tasterwechsels
@@ -43,7 +44,7 @@ int buttonState = HIGH;      // Aktueller Tasterstatus
 // 1 (2^0): Loop Start/Ende Meldungen
 // 2 (2^1): LoRa-Statusmeldungen (Prüfe auf Pakete)
 // 4 (2^2): LoRa-Nachrichten
-const uint8_t debug = 6;  // Nur LoRa-Status und Nachrichten (2 + 4)
+const uint8_t debug = 4;  // Nur LoRa-Nachrichten (4)
 
 void VextON() {
   pinMode(36, OUTPUT);  // Vext auf GPIO 36
@@ -76,12 +77,10 @@ void setup() {
   displayReset();
 
   // I2C initialisieren
-  if (debug & 2) Serial.println("I2C initialisieren...");
   Wire.begin(SDA_OLED, SCL_OLED);
   if (debug & 2) Serial.println("I2C initialisiert");
 
   // Display initialisieren
-  if (debug & 2) Serial.println("Display initialisieren...");
   if (!display.init()) {
     Serial.println("OLED-Initialisierung fehlgeschlagen!");
     statusLine = "ERR";
@@ -92,20 +91,18 @@ void setup() {
     display.flipScreenVertically();
     display.setFont(ArialMT_Plain_10);
     if (debug & 2) Serial.println("OLED initialisiert");
-    // Test-Anzeige direkt nach init
+    // Initiale Meldung "Starte..."
     display.clear();
-    display.drawString(0, 0, "Test");
+    display.drawString(0, 0, "Starte...");
     display.display();
     delay(1000);  // 1 Sekunde warten
   }
 
   // SPI initialisieren
-  if (debug & 2) Serial.println("SPI initialisieren mit Heltec-Pins...");
   SPI.begin(SCK_LoRa, MISO_LoRa, MOSI_LoRa, SS_LoRa);
   if (debug & 2) Serial.println("SPI initialisiert");
 
   // LoRa initialisieren
-  if (debug & 2) Serial.println("LoRa konfigurieren...");
   if (!LT.begin(SS_LoRa, RST_LoRa, BUSY_LoRa, DIO1_LoRa, SW_LoRa, DEVICE_SX1262)) {
     Serial.println("LoRa-Initialisierung fehlgeschlagen!");
     statusLine = "ERR";
@@ -129,7 +126,7 @@ void loop() {
     if (reading != buttonState) {
       buttonState = reading;
       if (buttonState == LOW) {  // Taster von OFF (HIGH) zu ON (LOW)
-        String message = "BlaBla";
+        String message = "BlaBla " + String(messageCounter++);
         if (debug & 4) Serial.println("Sende LoRa-Nachricht: " + message);
         uint8_t buffer[255];
         uint8_t len = message.length();
@@ -137,7 +134,7 @@ void loop() {
           buffer[i] = message[i];
         }
         if (LT.transmit(buffer, len, 1000, TXpower, WAIT_TX)) {
-          if (debug & 4) Serial.println("Nachricht gesendet!");
+          if (debug & 4) Serial.println("Nachricht gesendet: " + message);
           sendLine = "Sende: " + message;
         } else {
           Serial.println("Fehler beim Senden!");
@@ -154,7 +151,7 @@ void loop() {
   if (debug & 2) Serial.println("Prüfe auf LoRa-Pakete...");
   uint8_t buffer[255];  // Puffer für empfangene Daten
   uint8_t maxLen = sizeof(buffer);
-  int16_t len = LT.receive(buffer, maxLen, 2000, WAIT_RX);  // 2000ms Timeout, wartend
+  int16_t len = LT.receive(buffer, maxLen, 2000, NO_WAIT);  // Nicht-blockierend
   if (len > 0) {  // Prüfe, ob Daten empfangen wurden
     String message = "";
     for (uint8_t i = 0; i < len; i++) {
@@ -190,5 +187,5 @@ void loop() {
   display.drawString(0, 48, sendLine);
   display.display();
 
-  delay(200);
+  delay(100);  // Kürzerer Delay für flüssigere Updates
 }
