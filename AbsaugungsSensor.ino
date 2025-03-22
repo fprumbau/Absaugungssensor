@@ -148,7 +148,7 @@ void setup() {
   while (!Serial) delay(10);
   Serial.println("AbsaugungsSensor startet...");
 
-  Wire.begin(21, 22); //ADXL345 SDA = GPIO 21, SCL = GPIO 22 
+  Wire.begin(20,21); //ADXL345 SDA = GPIO 20, SCL = GPIO 21
   // Initialisiere ADXL345
   initADXL345();
 
