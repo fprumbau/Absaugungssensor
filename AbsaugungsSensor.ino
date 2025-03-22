@@ -150,8 +150,6 @@ void setup() {
   while (!Serial) delay(10);
   Serial.println("AbsaugungsSensor startet...");
 
-  Wire.begin(); Standard Pins fuers Display
-
   //ADXL auf 2. Bus
   Wire1.begin(48,47); //ADXL345 SDA = GPIO 48, SCL = GPIO 47
   // Initialisiere ADXL345
