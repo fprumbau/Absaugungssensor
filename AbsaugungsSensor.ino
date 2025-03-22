@@ -47,6 +47,82 @@ String lastSentMessage = "";  // Zuletzt gesendete Nachricht
 // 4 (2^2): LoRa-Nachrichten
 const uint8_t debug = 4;  // Nur LoRa-Nachrichten (4)
 
+// ADXL345 I²C Adresse (0x53, wenn SDO mit GND verbunden ist)
+#define ADXL345_ADDRESS 0x53
+
+// ADXL345 Register
+#define ADXL345_REG_DEVID 0x00       // Geräte-ID
+#define ADXL345_REG_POWER_CTL 0x2D   // Power Control Register
+#define ADXL345_REG_DATA_FORMAT 0x31 // Datenformat Register
+#define ADXL345_REG_DATAX0 0x32      // X-Achse Daten (Startregister)
+
+// Variablen für Beschleunigungsdaten
+int16_t accelX, accelY, accelZ;
+float gX, gY, gZ;
+
+// Initialisierung des ADXL345
+void initADXL345() {
+  // Gerät in Messmodus setzen
+  writeRegister(ADXL345_ADDRESS, ADXL345_REG_POWER_CTL, 0x08); // Messmodus aktivieren
+  // Datenformat setzen: ±2g, 10-bit Auflösung
+  writeRegister(ADXL345_ADDRESS, ADXL345_REG_DATA_FORMAT, 0x00);
+}
+
+// Register schreiben
+void writeRegister(uint8_t deviceAddress, uint8_t registerAddress, uint8_t value) {
+  Wire.beginTransmission(deviceAddress);
+  Wire.write(registerAddress);
+  Wire.write(value);
+  Wire.endTransmission();
+}
+
+// Beschleunigungsdaten lesen
+void readAccelerometer() {
+  uint8_t buffer[6];
+  
+  // Daten ab Register DATAX0 lesen (6 Bytes: X0, X1, Y0, Y1, Z0, Z1)
+  Wire.beginTransmission(ADXL345_ADDRESS);
+  Wire.write(ADXL345_REG_DATAX0);
+  Wire.endTransmission();
+  
+  Wire.requestFrom(ADXL345_ADDRESS, 6);
+  for (int i = 0; i < 6; i++) {
+    buffer[i] = Wire.read();
+  }
+  
+  // Rohdaten zusammenführen (16-bit Werte)
+  accelX = (int16_t)((buffer[1] << 8) | buffer[0]);
+  accelY = (int16_t)((buffer[3] << 8) | buffer[2]);
+  accelZ = (int16_t)((buffer[5] << 8) | buffer[4]);
+  
+  // In g umrechnen (für ±2g Bereich, 10-bit Auflösung: 1 LSB = 3.9 mg)
+  gX = accelX * 0.0039;
+  gY = accelY * 0.0039;
+  gZ = accelZ * 0.0039;
+}
+
+// Testen auf Bewegungen
+bool detectMovement(float threshold) {
+  static float prevGX = 0, prevGY = 0, prevGZ = 0;
+  bool movementDetected = false;
+  
+  // Änderungen berechnen
+  float deltaX = abs(gX - prevGX);
+  float deltaY = abs(gY - prevGY);
+  float deltaZ = abs(gZ - prevGZ);
+  
+  // Schwellwert für Bewegung
+  if (deltaX > threshold || deltaY > threshold || deltaZ > threshold) {
+    movementDetected = true;
+  }
+  // Aktuelle Werte speichern
+  prevGX = gX;
+  prevGY = gY;
+  prevGZ = gZ;
+  
+  return movementDetected;
+}
+
 void VextON() {
   pinMode(36, OUTPUT);  // Vext auf GPIO 36
   digitalWrite(36, LOW);
@@ -66,10 +142,15 @@ void displayReset() {
 }
 
 void setup() {
-  Wire.begin(21, 22); //ADXL345 SDA = GPIO 21, SCL = GPIO 22 
+
   Serial.begin(115200);
+
   while (!Serial) delay(10);
   Serial.println("AbsaugungsSensor startet...");
+
+  Wire.begin(21, 22); //ADXL345 SDA = GPIO 21, SCL = GPIO 22 
+  // Initialisiere ADXL345
+  initADXL345();
 
   // Taster initialisieren
   pinMode(TASTER, INPUT_PULLUP);  // Pullup, LOW = gedrückt
@@ -197,5 +278,22 @@ void loop() {
   display.drawString(0, 48, sendLine);
   display.display();
 
-  delay(100);  // Kürzerer Delay für flüssigere Updates
+  // Beschleunigungsdaten lesen
+  readAccelerometer();
+  
+  // Daten ausgeben
+  Serial.print("Accel X: ");
+  Serial.print(gX);
+  Serial.print(" g, Y: ");
+  Serial.print(gY);
+  Serial.print(" g, Z: ");
+  Serial.print(gZ);
+  Serial.println(" g");
+  
+  // Bewegung testen (Schwellwert z. B. 0.2 g)
+  if (detectMovement(0.2)) {
+    Serial.println("Bewegung erkannt!");
+  }
+
+  delay(500);  // Kürzerer Delay für flüssigere Updates
 }
