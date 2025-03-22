@@ -39,6 +39,7 @@ int messageCounter = 1;  // Laufender Zähler für Nachrichten
 unsigned long lastDebounceTime = 0;  // Zeit des letzten Tasterwechsels
 int lastButtonState = HIGH;  // Letzter Tasterstatus
 int buttonState = HIGH;      // Aktueller Tasterstatus
+String lastSentMessage = "";  // Zuletzt gesendete Nachricht
 
 // Debug-Level (Bitmasken)
 // 1 (2^0): Loop Start/Ende Meldungen
@@ -135,20 +136,25 @@ void loop() {
         }
         if (LT.transmit(buffer, len, 1000, TXpower, WAIT_TX)) {
           if (debug & 4) Serial.println("Nachricht gesendet: " + message);
-          sendLine = "Sende: " + message;
+          lastSentMessage = message;
         } else {
           Serial.println("Fehler beim Senden!");
-          sendLine = "Sende: Fehler";
+          lastSentMessage = "Fehler";
         }
       }
       // Tasterstatus aktualisieren
       tasterLine = (buttonState == HIGH) ? "Taster: OFF" : "Taster: ON";
+      // Sendestatus aktualisieren
+      if (buttonState == LOW && lastSentMessage != "") {
+        sendLine = "Sende: " + lastSentMessage;
+      } else if (buttonState == HIGH) {
+        sendLine = "";  // Zurücksetzen, wenn Taster losgelassen
+      }
     }
   }
   lastButtonState = reading;
 
   // LoRa-Nachricht empfangen
-  if (debug & 2) Serial.println("Prüfe auf LoRa-Pakete...");
   uint8_t buffer[255];  // Puffer für empfangene Daten
   uint8_t maxLen = sizeof(buffer);
   int16_t len = LT.receive(buffer, maxLen, 2000, NO_WAIT);  // Nicht-blockierend
@@ -167,17 +173,20 @@ void loop() {
     // Wenn kein Paket empfangen, aber letzte Nachricht < 10s her, behalte Empfang
     if (millis() - lastPacketTime < 10000) {
       // Behalte sendLine vom letzten Paket
+    } else if (buttonState == HIGH) {
+      statusLine = "Board laeuft...";
+      secondsLine = "Sekunden: " + String(millis() / 1000);
+      tasterLine = "Taster: OFF";
+      sendLine = "";
     } else {
       statusLine = "Board laeuft...";
       secondsLine = "Sekunden: " + String(millis() / 1000);
-      tasterLine = (buttonState == HIGH) ? "Taster: OFF" : "Taster: ON";
-      sendLine = "";
+      tasterLine = "Taster: ON";
+      if (lastSentMessage != "") sendLine = "Sende: " + lastSentMessage;
     }
-    if (debug & 2) Serial.println("Kein Paket empfangen");
   }
 
   // Display aktualisieren
-  if (debug & 2) Serial.println("Display aktualisieren...");
   display.clear();
   display.setTextAlignment(TEXT_ALIGN_LEFT);
   display.setFont(ArialMT_Plain_10);
