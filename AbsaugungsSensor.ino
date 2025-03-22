@@ -56,6 +56,8 @@ const uint8_t debug = 4;  // Nur LoRa-Nachrichten (4)
 #define ADXL345_REG_DATA_FORMAT 0x31 // Datenformat Register
 #define ADXL345_REG_DATAX0 0x32      // X-Achse Daten (Startregister)
 
+TwoWire Wire1 = TwoWire(1); // Zweiter I²C-Bus für ADXL345
+
 // Variablen für Beschleunigungsdaten
 int16_t accelX, accelY, accelZ;
 float gX, gY, gZ;
@@ -70,10 +72,10 @@ void initADXL345() {
 
 // Register schreiben
 void writeRegister(uint8_t deviceAddress, uint8_t registerAddress, uint8_t value) {
-  Wire.beginTransmission(deviceAddress);
-  Wire.write(registerAddress);
-  Wire.write(value);
-  Wire.endTransmission();
+  Wire1.beginTransmission(deviceAddress);
+  Wire1.write(registerAddress);
+  Wire1.write(value);
+  Wire1.endTransmission();
 }
 
 // Beschleunigungsdaten lesen
@@ -81,13 +83,13 @@ void readAccelerometer() {
   uint8_t buffer[6];
   
   // Daten ab Register DATAX0 lesen (6 Bytes: X0, X1, Y0, Y1, Z0, Z1)
-  Wire.beginTransmission(ADXL345_ADDRESS);
-  Wire.write(ADXL345_REG_DATAX0);
-  Wire.endTransmission();
+  Wire1.beginTransmission(ADXL345_ADDRESS);
+  Wire1.write(ADXL345_REG_DATAX0);
+  Wire1.endTransmission();
   
-  Wire.requestFrom(ADXL345_ADDRESS, 6);
+  Wire1.requestFrom(ADXL345_ADDRESS, 6);
   for (int i = 0; i < 6; i++) {
-    buffer[i] = Wire.read();
+    buffer[i] = Wire1.read();
   }
   
   // Rohdaten zusammenführen (16-bit Werte)
@@ -148,7 +150,10 @@ void setup() {
   while (!Serial) delay(10);
   Serial.println("AbsaugungsSensor startet...");
 
-  Wire.begin(48,47); //ADXL345 SDA = GPIO 48, SCL = GPIO 47
+  Wire.begin(); Standard Pins fuers Display
+
+  //ADXL auf 2. Bus
+  Wire1.begin(48,47); //ADXL345 SDA = GPIO 48, SCL = GPIO 47
   // Initialisiere ADXL345
   initADXL345();
 
