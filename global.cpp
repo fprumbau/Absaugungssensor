@@ -1,8 +1,16 @@
 #include "global.h"
 
-// Debug-Level (Bitmasken)
-// 1 (2^0): Loop Start/Ende Meldungen
-// 2 (2^1): LoRa-Statusmeldungen (Prüfe auf Pakete)
-// 4 (2^2): LoRa-Nachrichten
-// 8 (2^3): ADXL-Ausgaben
-const uint8_t debug = 12;  
+//Debug-Level (Bitmasken)
+//DEBUG_LOOP: Loop Start/Ende Meldungen
+//DEBUG_LORA: LoRa-Statusmeldungen (Prüfe auf Pakete)
+//LORA_MSGS: LoRa-Nachrichten
+//DEBUG_ADXL: ADXL-Ausgaben
+uint8_t debugLevel = LORA_MSGS || DEBUG_ADXL;  
+
+SSD1306Wire display(OLED_ADDRESS, SDA_OLED, SCL_OLED);
+
+void debugPrint(uint8_t level, const String& message) {
+  if (debugLevel & level) {
+    Serial.println(message);
+  }
+}

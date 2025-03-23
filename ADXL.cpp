@@ -9,7 +9,7 @@ bool ADXL::init() {
   Wire1.endTransmission();
   if (Wire1.requestFrom(ADXL345_ADDRESS, 1) == 1) {
     byte deviceID = Wire1.read();
-    if (debug & 8) {
+    if (debugLevel & 8) {
       Serial.print("Device ID: 0x");
       Serial.println(deviceID, HEX);
     }
