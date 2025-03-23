@@ -57,40 +57,23 @@ void displayReset() {
 }
 
 void setup() {
-  debugLevel = DEBUG_ADXL | LORA_MSGS; // Debug-Level setzen
+  debugLevel = DEBUG_DISPLAY | LORA_MSGS; // Debug-Level setzen
 
   Serial.begin(115200);
   while (!Serial) delay(10);
+
+  if (!oled.init()) {
+    Serial.println("Display initialization failed!");
+    while (1);
+  }
+  oled.clear();
+  oled.drawString(0, 0, "AbsaugungsSensor startet...");
+  oled.display();
+
   debugPrint(DEBUG_INIT, "AbsaugungsSensor startet...");
 
   // Taster initialisieren
   pinMode(TASTER, INPUT_PULLUP);  // Pullup, LOW = gedrückt
-
-  // Heltec-spezifische Display-Steuerung
-  VextON();
-  displayReset();
-
-  // I2C initialisieren
-  Wire.begin(SDA_OLED, SCL_OLED);
-  debugPrint(DEBUG_INIT, "I2C initialisiert");
-
-  // Display initialisieren
-  if (!display.init()) {
-    debugPrint(DEBUG_INIT, "OLED-Initialisierung fehlgeschlagen!");
-    statusLine = "ERR";
-    secondsLine = "";
-    tasterLine = "";
-    sendLine = "OLED-Fehler";
-  } else {
-    display.flipScreenVertically();
-    display.setFont(ArialMT_Plain_10);
-    debugPrint(DEBUG_INIT, "OLED initialisiert");
-    // Initiale Meldung "Starte..."
-    display.clear();
-    display.drawString(0, 0, "Starte...");
-    display.display();
-    delay(1000);  // 1 Sekunde warten
-  }
 
   // SPI initialisieren
   SPI.begin(SCK_LoRa, MISO_LoRa, MOSI_LoRa, SS_LoRa);
@@ -197,14 +180,13 @@ void loop() {
   }
 
   // Display aktualisieren
-  display.clear();
-  display.setTextAlignment(TEXT_ALIGN_LEFT);
-  display.setFont(ArialMT_Plain_10);
-  display.drawString(0, 0, statusLine);
-  display.drawString(0, 16, secondsLine);
-  display.drawString(0, 32, tasterLine);
-  display.drawString(0, 48, sendLine);
-  display.display();
+  oled.clear();
+  oled.drawString(0, 0, "AbsaugungsSensor");
+  oled.drawString(0, 16, "Taster: " + String(buttonState == HIGH ? "gedrückt" : "los"));
+  oled.drawString(0, 32, "X: " + String(adxl.getGX(), 2) + " g");
+  oled.drawString(0, 40, "Y: " + String(adxl.getGY(), 2) + " g");
+  oled.drawString(0, 48, "Z: " + String(adxl.getGZ(), 2) + " g");
+  oled.display();;
 
   delay(100);  // Kürzerer Delay für flüssigere Updates
 }
