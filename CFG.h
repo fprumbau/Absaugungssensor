@@ -8,8 +8,8 @@
 
 class CFG {
   private:
-        char* _webUser = "user";
-        char* _webPass = "pass";
+        char* _ssid; // = "P...y";
+        char* _pass; // = "5...7";
         void init();
   public:
         void load();
@@ -20,8 +20,8 @@ class CFG {
         void set(const String& keyVal);
         void set(const char* key, const char* val);
         String getValue(String data, char separator, int index);
-        char* webUser();
-        char* webPass();
+        char* ssid();
+        char* pass();
 };
 
 extern CFG config; // Globales Konfig-Objekt

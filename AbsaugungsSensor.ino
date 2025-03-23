@@ -13,7 +13,7 @@ void setup() {
     config.load();
 
     //einmal schreiben
-    //config.save();
+    config.save();
 
     config.print();
 

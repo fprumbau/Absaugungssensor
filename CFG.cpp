@@ -1,7 +1,7 @@
 #include "CFG.h"
 
-#define WEBUSER "webUser"
-#define WEBPASS "webPass"
+#define SSID "ssid"
+#define PASS "pass"
 
 CFG config; //Definition
 
@@ -36,21 +36,21 @@ void CFG::load() {
     Serial.println(F("Failed to parse config file"));
   }
 
-  if(doc.containsKey(WEBUSER) && doc.containsKey(WEBPASS)) {
+  if(doc.containsKey(SSID) && doc.containsKey(PASS)) {
     //Webzugang
-    const char* webUser = doc[WEBUSER];
-    _webUser = new char[strlen(webUser)+1];
-    strcpy(_webUser, webUser); 
+    const char* ssid = doc[SSID];
+    _ssid = new char[strlen(ssid)+1];
+    strcpy(_ssid, ssid); 
   
-    const char* webPass = doc[WEBPASS];
-    _webPass = new char[strlen(webPass)+1];
-    strcpy(_webPass, webPass);
+    const char* pass = doc[PASS];
+    _pass = new char[strlen(pass)+1];
+    strcpy(_pass, pass);
 
     if (debugLevel & 32) {
-      Serial.print(F("\nInitialisiere User/Pw: user:|"));
-      Serial.print(_webUser);
-      Serial.print(F("|; password:|"));
-      Serial.print(_webPass);
+      Serial.print(F("\nInitialisiere User/Pw: ssid:|"));
+      Serial.print(_ssid);
+      Serial.print(F("|; pass:|"));
+      Serial.print(_pass);
       Serial.println(F("|"));
     }
         
@@ -65,8 +65,8 @@ bool CFG::save() {
 
   DynamicJsonDocument doc(1024);
   
-  doc[WEBUSER] = _webUser;
-  doc[WEBPASS] = _webPass;
+  doc[SSID] = _ssid;
+  doc[PASS] = _pass;
 
   File configFile = LittleFS.open("/config.json", "w");
   if (!configFile) {
@@ -105,12 +105,12 @@ void CFG::set(const char* key, const char* val) {
 
   String keyStr = String(key);
 
-  if(keyStr == WEBUSER) {
-      _webUser = new char[strlen(val)+1];
-      strcpy(_webUser, val);    
-  } else if(keyStr == WEBPASS) {
-      _webPass = new char[strlen(val)+1];
-      strcpy(_webPass, val);
+  if(keyStr == SSID) {
+      _ssid = new char[strlen(val)+1];
+      strcpy(_ssid, val);    
+  } else if(keyStr == PASS) {
+      _pass = new char[strlen(val)+1];
+      strcpy(_pass, val);
   } else {
       Serial.print(F("Fuer diesen Konfigwert wurde keine Verarbeitung gefunden: "));
       Serial.println(key);
@@ -133,11 +133,11 @@ String CFG::getValue(String data, char separator, int index) {
     return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
-char* CFG::webUser() {
-  return _webUser;
+char* CFG::ssid() {
+  return _ssid;
 }
-char* CFG::webPass() {
-  return _webPass;
+char* CFG::pass() {
+  return _pass;
 }
 const char* CFG::load(const String& key) {
   if(!LittleFS.begin()) {
@@ -223,6 +223,8 @@ bool CFG::save(const String& key, const String& val) {
 
 void CFG::print() {
   Serial.println(F("--------------------------------"));
-  Serial.print(F("_webUser: "));
-  Serial.println(_webUser);   
+  Serial.print(F("_ssid: "));
+  Serial.println(_ssid);   
+  Serial.print(F("_pass: "));
+  Serial.println(_pass);   
 }
