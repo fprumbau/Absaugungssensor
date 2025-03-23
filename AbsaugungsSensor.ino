@@ -74,9 +74,6 @@ void setup() {
   while (!Serial) delay(10);
   Serial.println("AbsaugungsSensor startet...");
 
-  //ADXL initialisieren
-  adxl.initADXL345();
-
   // Taster initialisieren
   pinMode(TASTER, INPUT_PULLUP);  // Pullup, LOW = gedrückt
 
@@ -122,6 +119,9 @@ void setup() {
     // LoRa-Parameter setzen (müssen mit Sender übereinstimmen)
     LT.setupLoRa(868000000, 0, LORA_SF7, LORA_BW_125, LORA_CR_4_5, LDRO_AUTO);  // 868 MHz, SF7, BW 125 kHz
   }
+
+  //ADXL initialisieren
+  adxl.init();
 }
 
 void loop() {
@@ -193,7 +193,7 @@ void loop() {
     }
   }
 
-  adxl.readAccelerometer();
+  adxl.update();
   if (debug & 3) adxl.print();
 
   if (adxl.detectMovement(0.2)) {
