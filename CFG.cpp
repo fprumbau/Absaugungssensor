@@ -1,7 +1,7 @@
 #include "CFG.h"
 #include <ArduinoJson.h>
 
-CFG::CFG() : ssid("default_ssid"), pass("default_pass") {} // Standardwerte
+CFG::CFG() : ssid("default_ssid"), pass("default_pass") {}
 
 bool CFG::initializeFS() {
   if (!LittleFS.begin()) {
@@ -120,40 +120,42 @@ const char* CFG::load(const String& key) {
   }
 }
 
-bool CFG::save(const String& key, const String& value) {
-  if (!initializeFS()) {
-    return false;
-  }
-  File file = LittleFS.open(CFG_FILE, "r");
-  JsonDocument doc;
-  if (file) {
-    DeserializationError error = deserializeJson(doc, file);
-    if (error) {
-      Serial.println("Failed to parse config file: " + String(error.c_str()));
-      file.close();
-    } else {
+bool CFG::setValue(const String& key, const String& value, bool saveNow) {
+  if (key == SSID_KEY) {
+    ssid = value;
+  } else if (key == PASS_KEY) {
+    pass = value;
+  } else {
+    // Für zukünftige Schlüssel: nur in Datei speichern, ohne interne Variable
+    JsonDocument doc;
+    File file = LittleFS.open(CFG_FILE, "r");
+    if (file) {
+      DeserializationError error = deserializeJson(doc, file);
+      if (error) {
+        Serial.println("Failed to parse config file: " + String(error.c_str()));
+      }
       file.close();
     }
-  }
-
-  doc[key] = value;
-
-  file = LittleFS.open(CFG_FILE, "w");
-  if (!file) {
-    Serial.println("Failed to open config file for writing");
-    return false;
-  }
-
-  if (serializeJson(doc, file) == 0) {
-    Serial.println("Failed to write to config file");
+    doc[key] = value;
+    file = LittleFS.open(CFG_FILE, "w");
+    if (!file) {
+      Serial.println("Failed to open config file for writing");
+      return false;
+    }
+    if (serializeJson(doc, file) == 0) {
+      Serial.println("Failed to write to config file");
+      file.close();
+      return false;
+    }
     file.close();
-    return false;
+    debugPrint(DEBUG_DISPLAY, "Set and saved " + key + ": " + value);
+    return true;
   }
 
-  file.close();
-  if (key == SSID_KEY) ssid = value;
-  if (key == PASS_KEY) pass = value;
-  debugPrint(DEBUG_DISPLAY, "Saved " + key + ": " + value);
+  if (saveNow) {
+    return save();
+  }
+  debugPrint(DEBUG_DISPLAY, "Set " + key + ": " + value + " (not saved yet)");
   return true;
 }
 

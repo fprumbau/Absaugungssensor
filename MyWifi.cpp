@@ -1,76 +1,60 @@
 #include "MyWifi.h"
-#include "global.h"
 
-void MyWifi::connect() {
+MyWifi::MyWifi() : active(false), startTime(0) {}
 
-  //This is here to force the ESP32 to reset the WiFi and initialize correctly.
-  WiFi.disconnect(true);
-  WiFi.setSleep(false);
-  WiFi.enableSTA(true);
-  Serial.print(F("WIFI status = "));
-  Serial.println(WiFi.getMode());
+bool MyWifi::begin(const char* ssid, const char* password) {
+  this->ssid = ssid;
+  this->password = password;
   WiFi.mode(WIFI_STA);
-  //Ende silly mode 
+  WiFi.begin(ssid, password);
 
-  const char* ssid = config.getSSID();
-  const char* pass = config.getPass();
- 
-  WiFi.begin(ssid, pass); 
-
-  while(WiFi.status() != WL_CONNECTED) {
-        wifiReconnects++;
-        lastReconnectMillis = millis();
-        WiFi.disconnect(true);
-        WiFi.mode(WIFI_STA);
-        WiFi.begin(ssid, pass);
-        Serial.print(F("."));
-        delay(3000); 
+  unsigned long connectStart = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - connectStart < 10000) {
+    delay(500);
+    debugPrint(DEBUG_DISPLAY, "Connecting to WiFi...");
   }
 
-  if(connected()) {
-        Serial.printf("\nNew Client. RSSi: %ld dBm\n",WiFi.RSSI()); 
-        Serial.print(F("Ip Address: "));
-      
-        IPAddress ip = WiFi.localIP();
-        Serial.println(ip);
-        _localIP = ip;
-        _ip=ip.toString();
+  if (WiFi.status() == WL_CONNECTED) {
+    active = true;
+    startTime = millis();
+    debugPrint(DEBUG_DISPLAY, "WiFi connected: " + String(ssid));
+    return true;
+  } else {
+    Serial.println("WiFi connection failed");
+    WiFi.disconnect();
+    return false;
   }
 }
 
-String MyWifi::getIpAddress() {
-  return _ip;
-}
+void MyWifi::loop() {
+  if (!active) return;
 
-IPAddress MyWifi::localIP() {
-  return _localIP;
-}
-
-void MyWifi::reconnect() {
-  long now = millis();
-  if((now - lastReconnectMillis) > 60000) { //Ein Reconnect max. jede Minute
-    if(wifiReconnects >= myWifiRestartLimit) {
-      String msg = F("Nach {myWifiRestartLimit} Wifi Reconnects: Esp.restart()");
-      Serial.println(msg);
-      wifiReconnects=0;
-      ESP.restart();
-    } else {    
-      debugPrint(DEBUG_WIFI, F("Restarting WiFi..."));
-      connect();
-    }
+  if (millis() - startTime > TIMEOUT_MS) {
+    disconnect();
+    debugPrint(DEBUG_DISPLAY, "WiFi timeout reached");
   }
 }
 
-bool MyWifi::connected() {
-  return WiFi.status() == WL_CONNECTED;
+bool MyWifi::isConnected() {
+  return active && WiFi.status() == WL_CONNECTED;
 }
 
-void MyWifi::print() {
-  Serial.println(F("--------------------------------"));
-  Serial.print(F("Wifi reconnects: "));
-  Serial.println(wifiReconnects);
-  Serial.print(F("Wifi IP: "));
-  Serial.println(localIP());  
-  Serial.print(F("MyWifi.connected() :: "));
-  Serial.println(connected());   
+void MyWifi::disconnect() {
+  WiFi.disconnect();
+  active = false;
+  debugPrint(DEBUG_DISPLAY, "WiFi disconnected");
 }
+
+bool MyWifi::isActive() const {
+  return active;
+}
+
+void MyWifi::resetTimeout() {
+  if (active) {
+    startTime = millis();
+    debugPrint(DEBUG_DISPLAY, "WiFi timeout reset");
+  }
+}
+
+MyWifi wifi;
+const long WifiActivationTime = 6000; // 6 Sekunden

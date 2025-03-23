@@ -12,7 +12,7 @@ private:
   String ssid; // String statt const char* für dynamische Werte
   String pass;
 
-  bool initializeFS(); // Neue private Methode für FS-Initialisierung
+  bool initializeFS(); // Private Methode für FS-Initialisierung
 
 public:
   CFG();
@@ -21,7 +21,7 @@ public:
   const char* getSSID() const; // Gibt SSID zurück
   const char* getPass() const; // Gibt Passwort zurück
   const char* load(const String& key); // Lädt einen spezifischen Wert
-  bool save(const String& key, const String& value); // Speichert einen spezifischen Wert
+  bool setValue(const String& key, const String& value, bool saveNow = true); // Setzt einen Wert und speichert optional
 };
 
 extern CFG config;

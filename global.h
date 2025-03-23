@@ -16,7 +16,7 @@
 #include "pins_arduino.h"
 #include <CFG.h>
 
-#define TASTER 19  // Taster an GPIO 19
+#define TASTER_PIN 19  // Taster an GPIO 19
 #define DEBOUNCE_DELAY 100  // Entprellungszeit in ms
 
 // Debug levels
@@ -40,6 +40,10 @@ extern unsigned long lastDebounceTime;
 extern int lastButtonState; 
 extern int buttonState;
 extern String lastSentMessage;
+
+extern bool TasterGedrueckt;
+extern unsigned long TasterPressTime;
+extern const long TasterEntprellZeit;
 
 void debugPrint(uint8_t level, const String& message);
 

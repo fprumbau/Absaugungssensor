@@ -1,23 +1,28 @@
 #ifndef MYWIFI_H
 #define MYWIFI_H
 
+#include "global.h"
 #include <WiFi.h>
 
 class MyWifi {
-    private:
-      String _ip;
-      IPAddress _localIP;
-      long lastReconnectMillis;
-      const int myWifiRestartLimit = 50;
-      boolean isBooting = true;
-    public:
-      int wifiReconnects = 0; //0.9.9.92 Zaehlen von Wifi Reconnects
-      void connect();
-      String getIpAddress();
-      IPAddress localIP();
-      void reconnect();
-      bool connected();
-      void print();
+public:
+  MyWifi();
+  bool begin(const char* ssid, const char* password); // Startet WiFi-Modus
+  void loop();                                       // Prüft Timeout und Verbindungsstatus
+  bool isConnected();                                // Gibt Verbindungsstatus zurück
+  void disconnect();                                 // Beendet WiFi-Verbindung
+  bool isActive() const;                             // Gibt zurück, ob WiFi-Modus aktiv ist
+  void resetTimeout();                               // Setzt Timeout zurück
+
+private:
+  String ssid;
+  String password;
+  bool active;
+  unsigned long startTime;
+  static constexpr unsigned long TIMEOUT_MS = 120000; // 120 Sekunden
 };
+
+extern MyWifi wifi;
+extern const long WifiActivationTime; 
 
 #endif

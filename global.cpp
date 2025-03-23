@@ -17,6 +17,10 @@ int lastButtonState = HIGH;  // Letzter Tasterstatus
 int buttonState = HIGH;      // Aktueller Tasterstatus
 String lastSentMessage = "";  // Zuletzt gesendete Nachricht
 
+bool TasterGedrueckt = false;
+unsigned long TasterPressTime = 0;
+const long TasterEntprellZeit = 50;
+
 void debugPrint(uint8_t level, const String& message) {
   if (debugLevel & level) {
     Serial.println(message);
