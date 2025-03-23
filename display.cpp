@@ -4,9 +4,12 @@ Display::Display() : oled(OLED_ADDRESS, SDA_OLED, SCL_OLED) {}
 
 bool Display::init() {
   pinMode(VEXT_PIN, OUTPUT);
+  pinMode(RST_PIN, OUTPUT);
   vextOn(); // Vext einschalten für Display
+  reset();  // Display-Reset durchführen
   Wire.begin(SDA_OLED, SCL_OLED);
   oled.init();
+  Serial.println("OLED init called"); // Debug
   oled.flipScreenVertically();
   oled.setFont(ArialMT_Plain_10);
   debugPrint(DEBUG_DISPLAY, "Display initialized");
@@ -14,12 +17,10 @@ bool Display::init() {
 }
 
 void Display::reset() {
-  vextOff();
-  delay(1); // Kurze Pause für Reset
-  vextOn();
-  oled.init();
-  oled.flipScreenVertically();
-  oled.setFont(ArialMT_Plain_10);
+  digitalWrite(RST_PIN, LOW);  // Reset aktivieren
+  delay(10);                   // Längeres Timing
+  digitalWrite(RST_PIN, HIGH); // Reset deaktivieren
+  delay(10);                   // Wartezeit nach Reset
   debugPrint(DEBUG_DISPLAY, "Display reset");
 }
 
@@ -43,4 +44,4 @@ void Display::display() {
   oled.display();
 }
 
-Display oled; // Definition des globalen Objekts
+Display oled; // Definition

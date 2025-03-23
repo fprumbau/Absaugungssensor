@@ -182,7 +182,7 @@ void loop() {
   // Display aktualisieren
   oled.clear();
   oled.drawString(0, 0, "AbsaugungsSensor");
-  oled.drawString(0, 16, "Taster: " + String(buttonState == HIGH ? "gedrückt" : "los"));
+  oled.drawString(0, 16, "Taster: " + String(buttonState == LOW ? "gedrückt" : "los"));
   oled.drawString(0, 32, "X: " + String(adxl.getGX(), 2) + " g");
   oled.drawString(0, 40, "Y: " + String(adxl.getGY(), 2) + " g");
   oled.drawString(0, 48, "Z: " + String(adxl.getGZ(), 2) + " g");
