@@ -1,9 +1,4 @@
-#include <Wire.h>
-#include <SPI.h>
-#include <SX126XLT.h>  // SX12XX-LoRa Bibliothek
-#include "SSD1306Wire.h"
-#include "pins_arduino.h"
-#include "ADXL.h"
+#include "global.h"
 
 #define TASTER 19  // Taster an GPIO 19
 #define DEBOUNCE_DELAY 100  // Entprellungszeit in ms
@@ -24,6 +19,7 @@
 // OLED-Display initialisieren
 SSD1306Wire display(0x3c, SDA_OLED, SCL_OLED);
 
+//Vibrationssensor
 ADXL adxl;
 
 // LoRa-Instanz
@@ -43,13 +39,6 @@ unsigned long lastDebounceTime = 0;  // Zeit des letzten Tasterwechsels
 int lastButtonState = HIGH;  // Letzter Tasterstatus
 int buttonState = HIGH;      // Aktueller Tasterstatus
 String lastSentMessage = "";  // Zuletzt gesendete Nachricht
-
-// Debug-Level (Bitmasken)
-// 1 (2^0): Loop Start/Ende Meldungen
-// 2 (2^1): LoRa-Statusmeldungen (Prüfe auf Pakete)
-// 4 (2^2): LoRa-Nachrichten
-// 8 (2^3): ACXL-Ausgaben
-const uint8_t debug = 4;  // Nur LoRa-Nachrichten (4)
 
 void VextON() {
   pinMode(36, OUTPUT);  // Vext auf GPIO 36
@@ -194,13 +183,14 @@ void loop() {
   }
 
   adxl.update();
-  if (debug & 3) adxl.print();
+  if (debug & 8) adxl.print();
 
   if (adxl.detectMovement(0.2)) {
     Serial.println("Bewegung erkannt!");
     // Optional: Bei Bewegung LoRa-Nachricht schicken
-    //pixels.setPixelColor(0, pixels.Color(0, 150, 0));
-    //pixels.show();
+    //LoRa.beginPacket();
+    // ... LoRa.send ...
+    //LoRa.endPacket()
   }
 
   // Display aktualisieren

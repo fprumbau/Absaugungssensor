@@ -1,8 +1,7 @@
 #ifndef ADXL_H
 #define ADXL_H
 
-#include <Wire.h>
-#include <Arduino.h>
+#include "global.h"
 
 class ADXL {
 public:
