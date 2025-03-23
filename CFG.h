@@ -2,28 +2,28 @@
 #define CFG_H
 
 #include "global.h"
-
-//if we cannot mount the LittleFS disk, shall we format one?
-#define FORMAT_LITTLEFS_IF_FAILED true
+#include <LittleFS.h>
 
 class CFG {
-  private:
-        char* _ssid; // = "P...y";
-        char* _pass; // = "5...7";
-        void init();
-  public:
-        void load();
-        const char* load(const String& key);        
-        bool save();
-        bool save(const String& key, const String& val);
-        void print();
-        void set(const String& keyVal);
-        void set(const char* key, const char* val);
-        String getValue(String data, char separator, int index);
-        char* ssid();
-        char* pass();
+private:
+  const char* SSID_KEY = "ssid";
+  const char* PASS_KEY = "pass";
+  const char* CFG_FILE = "/config.json";
+  String ssid; // String statt const char* für dynamische Werte
+  String pass;
+
+  bool initializeFS(); // Neue private Methode für FS-Initialisierung
+
+public:
+  CFG();
+  bool load();              // Lädt die Konfiguration aus LittleFS
+  bool save();              // Speichert die Konfiguration in LittleFS
+  const char* getSSID() const; // Gibt SSID zurück
+  const char* getPass() const; // Gibt Passwort zurück
+  const char* load(const String& key); // Lädt einen spezifischen Wert
+  bool save(const String& key, const String& value); // Speichert einen spezifischen Wert
 };
 
-extern CFG config; // Globales Konfig-Objekt
+extern CFG config;
 
 #endif

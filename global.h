@@ -10,6 +10,7 @@
 #include <Wire.h>
 #include "ADXL.h"
 #include "LoRa.h"
+#include "MyWifi.h"
 #include "display.h"
 #include "SSD1306Wire.h"
 #include "pins_arduino.h"
@@ -26,6 +27,7 @@
 #define DEBUG_INIT    (1 << 4) // 8
 #define DEBUG_DISPLAY (1 << 5) // 16
 #define DEBUG_CONFIG  (1 << 6) // 32
+#define DEBUG_WIFI    (1 << 7) // 64
 
 extern uint8_t debugLevel;
 

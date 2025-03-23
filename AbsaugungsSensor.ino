@@ -10,12 +10,12 @@ void setup() {
     while (!Serial) delay(10);
 
     //Konfig lesen
-    config.load();
+    config.load(); // Lade Konfiguration (SSID, Passwort)
+    debugPrint(DEBUG_DISPLAY, "SSID: " + String(config.getSSID()));
+    debugPrint(DEBUG_DISPLAY, "Pass: " + String(config.getPass()));
 
     //einmal schreiben
     config.save();
-
-    config.print();
 
     if (!oled.init()) {
       Serial.println("Display initialization failed!");

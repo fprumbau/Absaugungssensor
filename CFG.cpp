@@ -1,230 +1,160 @@
 #include "CFG.h"
+#include <ArduinoJson.h>
 
-#define SSID "ssid"
-#define PASS "pass"
+CFG::CFG() : ssid("default_ssid"), pass("default_pass") {} // Standardwerte
 
-CFG config; //Definition
-
-void CFG::load() {
-
-  if(!LittleFS.begin()) {
-    return;
-  }
-  File configFile = LittleFS.open("/config.json", "r");
-  if(!configFile){
-    return;
-  }
-  size_t size = configFile.size();
-  if(size>8192) {
-     Serial.println(F("Config file is to large"));
-     return;
-  }
-  //allocate a buffer to store contents of the file.
-  std::unique_ptr<char[]> buf(new char[size]);
-
-  //We don't use String here because ArduinoJson lib req the intput buffer
-  // to be mutable. if you don't use ArduionJson, you may as well use
-  // configFile.readString instead
-  configFile.readBytes(buf.get(), size);
-  debugPrint(DEBUG_CONFIG, buf.get());
-
-  DynamicJsonDocument doc(1024);
-  
-  auto error = deserializeJson(doc, buf.get());
-
-  if(error) {
-    Serial.println(F("Failed to parse config file"));
-  }
-
-  if(doc.containsKey(SSID) && doc.containsKey(PASS)) {
-    //Webzugang
-    const char* ssid = doc[SSID];
-    _ssid = new char[strlen(ssid)+1];
-    strcpy(_ssid, ssid); 
-  
-    const char* pass = doc[PASS];
-    _pass = new char[strlen(pass)+1];
-    strcpy(_pass, pass);
-
-    if (debugLevel & 32) {
-      Serial.print(F("\nInitialisiere User/Pw: ssid:|"));
-      Serial.print(_ssid);
-      Serial.print(F("|; pass:|"));
-      Serial.print(_pass);
-      Serial.println(F("|"));
+bool CFG::initializeFS() {
+  if (!LittleFS.begin()) {
+    Serial.println("LittleFS Mount Failed, attempting format...");
+    if (!LittleFS.format()) {
+      Serial.println("LittleFS Format Failed");
+      return false;
     }
-        
+    if (!LittleFS.begin()) {
+      Serial.println("LittleFS Mount Failed after format");
+      return false;
+    }
+    debugPrint(DEBUG_DISPLAY, "LittleFS formatted and mounted");
   }
+  return true;
+}
+
+bool CFG::load() {
+  if (!initializeFS()) {
+    return false;
+  }
+  File file = LittleFS.open(CFG_FILE, "r");
+  if (!file) {
+    Serial.println("No config file found, using defaults");
+    save(); // Erstelle eine neue Datei mit Standardwerten
+    return true;
+  }
+
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, file);
+  if (error) {
+    Serial.println("Failed to parse config file: " + String(error.c_str()));
+    file.close();
+    Serial.println("Reinitializing LittleFS...");
+    LittleFS.end();
+    if (!initializeFS()) {
+      return false;
+    }
+    save(); // Erstelle eine neue Datei mit Standardwerten
+    return true;
+  }
+
+  if (doc[SSID_KEY].is<String>() && doc[PASS_KEY].is<String>()) {
+    ssid = doc[SSID_KEY].as<String>();
+    pass = doc[PASS_KEY].as<String>();
+    debugPrint(DEBUG_DISPLAY, "Config loaded: SSID=" + ssid);
+  } else {
+    Serial.println("Config file invalid, using defaults");
+    file.close();
+    save(); // Überschreibe mit Standardwerten
+    return true;
+  }
+
+  file.close();
+  return true;
 }
 
 bool CFG::save() {
-  
-  if(!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)) {
+  if (!initializeFS()) {
+    return false;
+  }
+  File file = LittleFS.open(CFG_FILE, "w");
+  if (!file) {
+    Serial.println("Failed to open config file for writing");
     return false;
   }
 
-  DynamicJsonDocument doc(1024);
-  
-  doc[SSID] = _ssid;
-  doc[PASS] = _pass;
+  JsonDocument doc;
+  doc[SSID_KEY] = ssid;
+  doc[PASS_KEY] = pass;
 
-  File configFile = LittleFS.open("/config.json", "w");
-  if (!configFile) {
-    Serial.println(F("Failed to open config file for writing"));
+  if (serializeJson(doc, file) == 0) {
+    Serial.println("Failed to write to config file");
+    file.close();
     return false;
   }
-  if (debugLevel & 32) {
-    serializeJson(doc, Serial);
-  }
-  serializeJson(doc, configFile);
-  Serial.println(F("\nKonfiguration wurde erfolgreich gespeichert."));
 
-  configFile.flush();
-  configFile.close();
-  
+  file.close();
+  debugPrint(DEBUG_DISPLAY, "Config saved: SSID=" + ssid);
   return true;
 }
 
-void CFG::set(const String& keyVal) {
-
-  String key = getValue(keyVal, ':', 0);
-  String val = getValue(keyVal, ':', 1);
-
-  set(key.c_str(), val.c_str());
+const char* CFG::getSSID() const {
+  return ssid.c_str();
 }
 
-void CFG::set(const char* key, const char* val) {
-
-  if (debugLevel & 32) {
-    Serial.print(F("Set config value '"));
-    Serial.print(key);
-    Serial.print(F("' to '"));
-    Serial.print(val);
-    Serial.println(F("'; Still has to be saved"));
-  }
-
-  String keyStr = String(key);
-
-  if(keyStr == SSID) {
-      _ssid = new char[strlen(val)+1];
-      strcpy(_ssid, val);    
-  } else if(keyStr == PASS) {
-      _pass = new char[strlen(val)+1];
-      strcpy(_pass, val);
-  } else {
-      Serial.print(F("Fuer diesen Konfigwert wurde keine Verarbeitung gefunden: "));
-      Serial.println(key);
-  }
+const char* CFG::getPass() const {
+  return pass.c_str();
 }
 
-String CFG::getValue(String data, char separator, int index) {
-  
-    int found = 0;
-    int strIndex[] = { 0, -1 };
-    int maxIndex = data.length() - 1;
-
-    for (int i = 0; i <= maxIndex && found <= index; i++) {
-        if (data.charAt(i) == separator || i == maxIndex) {
-            found++;
-            strIndex[0] = strIndex[1] + 1;
-            strIndex[1] = (i == maxIndex) ? i+1 : i;
-        }
-    }
-    return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
-}
-
-char* CFG::ssid() {
-  return _ssid;
-}
-char* CFG::pass() {
-  return _pass;
-}
 const char* CFG::load(const String& key) {
-  if(!LittleFS.begin()) {
-    return NULL;
+  if (!initializeFS()) {
+    return "";
   }
-  File configFile = LittleFS.open("/config.json", "r");
-  if(!configFile){
-    return NULL;
-  }
-  size_t size = configFile.size();
-  if(size>8192) {
-     Serial.println(F("Config file is to large"));
-     return NULL;
-  }
-  //allocate a buffer to store contents of the file.
-  std::unique_ptr<char[]> buf(new char[size]);
-
-  //We don't use String here because ArduinoJson lib req the intput buffer
-  // to be mutable. if you don't use ArduionJson, you may as well use
-  // configFile.readString instead
-  configFile.readBytes(buf.get(), size);
-  if (debugLevel & 32) {
-    Serial.println(buf.get());
+  File file = LittleFS.open(CFG_FILE, "r");
+  if (!file) {
+    Serial.println("No config file found");
+    return "";
   }
 
-  DynamicJsonDocument doc(1024);
-  
-  auto error = deserializeJson(doc, buf.get());
-
-  if(error) {
-    Serial.println(F("Failed to parse config file"));
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, file);
+  if (error) {
+    Serial.println("Failed to parse config file: " + String(error.c_str()));
+    file.close();
+    return "";
   }
-  
-  const char* val = doc[key];    
-  return val;        
-}       
-bool CFG::save(const String& key, const String& val) {
 
-  if(!LittleFS.begin()) {
-    return NULL;
+  if (doc[key].is<String>()) {
+    String value = doc[key].as<String>();
+    file.close();
+    return value.c_str();
+  } else {
+    file.close();
+    return "";
   }
-  File configFile = LittleFS.open("/config.json", "r");
-  if(!configFile){
-    return NULL;
+}
+
+bool CFG::save(const String& key, const String& value) {
+  if (!initializeFS()) {
+    return false;
   }
-  size_t size = configFile.size();
-  if(size>8192) {
-     Serial.println(F("Config file is to large"));
-     return NULL;
+  File file = LittleFS.open(CFG_FILE, "r");
+  JsonDocument doc;
+  if (file) {
+    DeserializationError error = deserializeJson(doc, file);
+    if (error) {
+      Serial.println("Failed to parse config file: " + String(error.c_str()));
+      file.close();
+    } else {
+      file.close();
+    }
   }
-  //allocate a buffer to store contents of the file.
-  std::unique_ptr<char[]> buf(new char[size]);
 
-  //We don't use String here because ArduinoJson lib req the intput buffer
-  // to be mutable. if you don't use ArduionJson, you may as well use
-  // configFile.readString instead
-  configFile.readBytes(buf.get(), size);
-  debugPrint(DEBUG_CONFIG, buf.get());
+  doc[key] = value;
 
-  DynamicJsonDocument doc(1024);
-  
-  auto error = deserializeJson(doc, buf.get());
+  file = LittleFS.open(CFG_FILE, "w");
+  if (!file) {
+    Serial.println("Failed to open config file for writing");
+    return false;
+  }
 
-  if(error) {
-    Serial.println(F("Failed to parse config file"));
-  }  
+  if (serializeJson(doc, file) == 0) {
+    Serial.println("Failed to write to config file");
+    file.close();
+    return false;
+  }
 
-  doc[key]=val;  
-
-  Serial.print("Key: ");
-  Serial.print(key);
-  Serial.print("; Value: ");
-  Serial.println(val);
-  
-  serializeJson(doc, Serial);
-  serializeJson(doc, configFile);
-  Serial.println(F("\nKonfiguration wurde erfolgreich gespeichert."));
-
-  configFile.flush();
-  configFile.close();  
+  file.close();
+  if (key == SSID_KEY) ssid = value;
+  if (key == PASS_KEY) pass = value;
+  debugPrint(DEBUG_DISPLAY, "Saved " + key + ": " + value);
   return true;
 }
 
-void CFG::print() {
-  Serial.println(F("--------------------------------"));
-  Serial.print(F("_ssid: "));
-  Serial.println(_ssid);   
-  Serial.print(F("_pass: "));
-  Serial.println(_pass);   
-}
+CFG config;
