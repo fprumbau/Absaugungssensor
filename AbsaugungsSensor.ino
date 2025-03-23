@@ -1,204 +1,217 @@
 #include <Wire.h>
+#include <SPI.h>
+#include <SX126XLT.h>  // SX12XX-LoRa Bibliothek
 #include "SSD1306Wire.h"
-#include <Adafruit_NeoPixel.h>
+#include "pins_arduino.h"
+#include "ADXL.h"
 
-// Display-Definitionen (Standardpins beim Heltec LoRa WiFi 32 V3)
-#define SDA_OLED 4  // Standard-SDA-Pin für Heltec OLED
-#define SCL_OLED 15 // Standard-SCL-Pin für Heltec OLED
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_ADDRESS 0x3C // Typische Adresse für Heltec OLED
-SSD1306Wire display(OLED_ADDRESS, SDA_OLED, SCL_OLED);
+#define TASTER 19  // Taster an GPIO 19
+#define DEBOUNCE_DELAY 100  // Entprellungszeit in ms
 
-// ADXL345 Definitionen
-#define ADXL345_ADDRESS 0x53
-#define ADXL345_REG_DEVID 0x00
-#define ADXL345_REG_POWER_CTL 0x2D
-#define ADXL345_REG_DATA_FORMAT 0x31
-#define ADXL345_REG_DATAX0 0x32
+// Pin-Definitionen für Heltec WiFi LoRa 32 V3 (aus Forum-Posting)
+#define SDA_OLED 17
+#define SCL_OLED 18
+#define RST_OLED 21
+#define SS_LoRa 8
+#define SCK_LoRa 9
+#define MOSI_LoRa 10
+#define MISO_LoRa 11
+#define RST_LoRa 12
+#define BUSY_LoRa 13
+#define DIO1_LoRa 14
+#define SW_LoRa -1
 
-// NeoPixel Definitionen
-#define PIN_NEO_PIXEL  12
-#define NUM_PIXELS     1
-Adafruit_NeoPixel pixels(NUM_PIXELS, PIN_NEO_PIXEL, NEO_GRB + NEO_KHZ800);
+// OLED-Display initialisieren
+SSD1306Wire display(0x3c, SDA_OLED, SCL_OLED);
 
-// Pin-Definitionen
-const int RelaisPin = 2;
-const int TasterPin = 13;
+ADXL adxl;
 
-// Variablen
-int16_t accelX, accelY, accelZ;
-float gX, gY, gZ;
-unsigned long ZeitAus;
-bool RelaisState = false;
-bool TasterGedrueckt = false;
-unsigned long TasterPressTime = 0;
-unsigned long RelaisEinZeit = 0;
-const long TasterEntprellZeit = 50;
-const long RelaisNachlaufzeit = 10000; // 10 Sekunden Nachlaufzeit
+// LoRa-Instanz
+SX126XLT LT;
+
+// Status-Variablen
+String statusLine = "Board laeuft...";
+String secondsLine = "Sekunden: 0";
+String tasterLine = "Taster: OFF";
+String sendLine = "";
+unsigned long lastPacketTime = 0;  // Zeit des letzten empfangenen Pakets
+const int8_t TXpower = 10;  // 10 dBm – Sendeleistung
+int messageCounter = 1;  // Laufender Zähler für Nachrichten
+
+// Taster-Entprellung
+unsigned long lastDebounceTime = 0;  // Zeit des letzten Tasterwechsels
+int lastButtonState = HIGH;  // Letzter Tasterstatus
+int buttonState = HIGH;      // Aktueller Tasterstatus
+String lastSentMessage = "";  // Zuletzt gesendete Nachricht
+
+// Debug-Level (Bitmasken)
+// 1 (2^0): Loop Start/Ende Meldungen
+// 2 (2^1): LoRa-Statusmeldungen (Prüfe auf Pakete)
+// 4 (2^2): LoRa-Nachrichten
+// 8 (2^3): ACXL-Ausgaben
+const uint8_t debug = 4;  // Nur LoRa-Nachrichten (4)
+
+void VextON() {
+  pinMode(36, OUTPUT);  // Vext auf GPIO 36
+  digitalWrite(36, LOW);
+}
+
+void VextOFF() {
+  pinMode(36, OUTPUT);
+  digitalWrite(36, HIGH);
+}
+
+void displayReset() {
+  pinMode(RST_OLED, OUTPUT);
+  digitalWrite(RST_OLED, LOW);  // Reset aktivieren
+  delay(10);                    // Längeres Timing
+  digitalWrite(RST_OLED, HIGH); // Reset deaktivieren
+  delay(10);                    // Wartezeit nach Reset
+}
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  while (!Serial) delay(10);
+  Serial.println("AbsaugungsSensor startet...");
 
-  // Display auf Standard-I²C-Bus initialisieren
+  //ADXL initialisieren
+  adxl.initADXL345();
+
+  // Taster initialisieren
+  pinMode(TASTER, INPUT_PULLUP);  // Pullup, LOW = gedrückt
+
+  // Heltec-spezifische Display-Steuerung
+  VextON();
+  displayReset();
+
+  // I2C initialisieren
   Wire.begin(SDA_OLED, SCL_OLED);
-  display.init();
-  display.flipScreenVertically(); // Oft nötig bei Heltec-Displays
-  display.setFont(ArialMT_Plain_10);
-  display.clear();
-  display.drawString(0, 0, "AbsaugungsSensor startet...");
-  display.display();
+  if (debug & 2) Serial.println("I2C initialisiert");
 
-  // ADXL345 auf zweitem I²C-Bus initialisieren (Wire1 ist vordefiniert)
-  Wire1.begin(48, 47); // SDA = GPIO 48, SCL = GPIO 47
-  initADXL345();
-
-  // NeoPixel initialisieren
-  pixels.begin();
-  pixels.setBrightness(50);
-  pixels.clear();
-  pixels.show();
-
-  // Pin-Modi setzen
-  pinMode(RelaisPin, OUTPUT);
-  digitalWrite(RelaisPin, LOW);
-  pinMode(TasterPin, INPUT_PULLUP);
-  ZeitAus = millis();
-}
-
-// Initialisierung des ADXL345
-void initADXL345() {
-  Wire1.beginTransmission(ADXL345_ADDRESS);
-  Wire1.write(ADXL345_REG_DEVID);
-  Wire1.endTransmission();
-  
-  Wire1.requestFrom(ADXL345_ADDRESS, 1);
-  if (Wire1.available()) {
-    byte deviceID = Wire1.read();
-    Serial.print("Device ID: 0x");
-    Serial.println(deviceID, HEX);
-    if (deviceID != 0xE5) Serial.println("ADXL345 not detected!");
+  // Display initialisieren
+  if (!display.init()) {
+    Serial.println("OLED-Initialisierung fehlgeschlagen!");
+    statusLine = "ERR";
+    secondsLine = "";
+    tasterLine = "";
+    sendLine = "OLED-Fehler";
+  } else {
+    display.flipScreenVertically();
+    display.setFont(ArialMT_Plain_10);
+    if (debug & 2) Serial.println("OLED initialisiert");
+    // Initiale Meldung "Starte..."
+    display.clear();
+    display.drawString(0, 0, "Starte...");
+    display.display();
+    delay(1000);  // 1 Sekunde warten
   }
-  
-  writeRegister(ADXL345_ADDRESS, ADXL345_REG_POWER_CTL, 0x08, Wire1);
-  writeRegister(ADXL345_ADDRESS, ADXL345_REG_DATA_FORMAT, 0x00, Wire1);
-}
 
-// Register schreiben
-void writeRegister(uint8_t deviceAddress, uint8_t registerAddress, uint8_t value, TwoWire &wire) {
-  wire.beginTransmission(deviceAddress);
-  wire.write(registerAddress);
-  wire.write(value);
-  wire.endTransmission();
-}
+  // SPI initialisieren
+  SPI.begin(SCK_LoRa, MISO_LoRa, MOSI_LoRa, SS_LoRa);
+  if (debug & 2) Serial.println("SPI initialisiert");
 
-// Beschleunigungsdaten lesen
-void readAccelerometer() {
-  uint8_t buffer[6];
-  
-  Wire1.beginTransmission(ADXL345_ADDRESS);
-  Wire1.write(ADXL345_REG_DATAX0);
-  Wire1.endTransmission();
-  
-  Wire1.requestFrom(ADXL345_ADDRESS, 6);
-  for (int i = 0; i < 6; i++) {
-    buffer[i] = Wire1.read();
+  // LoRa initialisieren
+  if (!LT.begin(SS_LoRa, RST_LoRa, BUSY_LoRa, DIO1_LoRa, SW_LoRa, DEVICE_SX1262)) {
+    Serial.println("LoRa-Initialisierung fehlgeschlagen!");
+    statusLine = "ERR";
+    secondsLine = "";
+    tasterLine = "";
+    sendLine = "LoRa-Fehler";
+  } else {
+    if (debug & 2) Serial.println("LoRa initialisiert erfolgreich!");
+    // LoRa-Parameter setzen (müssen mit Sender übereinstimmen)
+    LT.setupLoRa(868000000, 0, LORA_SF7, LORA_BW_125, LORA_CR_4_5, LDRO_AUTO);  // 868 MHz, SF7, BW 125 kHz
   }
-  
-  accelX = (int16_t)((buffer[1] << 8) | buffer[0]);
-  accelY = (int16_t)((buffer[3] << 8) | buffer[2]);
-  accelZ = (int16_t)((buffer[5] << 8) | buffer[4]);
-  
-  gX = accelX * 0.0039;
-  gY = accelY * 0.0039;
-  gZ = accelZ * 0.0039;
-}
-
-// Bewegungserkennung
-bool detectMovement(float threshold) {
-  static float prevGX = 0, prevGY = 0, prevGZ = 0;
-  bool movementDetected = false;
-  
-  float deltaX = abs(gX - prevGX);
-  float deltaY = abs(gY - prevGY);
-  float deltaZ = abs(gZ - prevGZ);
-  
-  if (deltaX > threshold || deltaY > threshold || deltaZ > threshold) {
-    movementDetected = true;
-  }
-  
-  prevGX = gX;
-  prevGY = gY;
-  prevGZ = gZ;
-  
-  return movementDetected;
 }
 
 void loop() {
-  // Taster-Logik
-  bool TasterState = digitalRead(TasterPin) == LOW;
-
-  if (TasterState && !TasterGedrueckt) {
-    unsigned long currentTime = millis();
-    if (currentTime - TasterPressTime > TasterEntprellZeit) {
-      TasterGedrueckt = true;
-      TasterPressTime = currentTime;
-      RelaisState = !RelaisState;
-      digitalWrite(RelaisPin, RelaisState ? HIGH : LOW);
-      if (RelaisState) {
-        RelaisEinZeit = currentTime;
+  // Taster prüfen mit Entprellung
+  int reading = digitalRead(TASTER);
+  if (reading != lastButtonState) {
+    lastDebounceTime = millis();
+  }
+  if ((millis() - lastDebounceTime) > DEBOUNCE_DELAY) {
+    if (reading != buttonState) {
+      buttonState = reading;
+      if (buttonState == LOW) {  // Taster von OFF (HIGH) zu ON (LOW)
+        String message = "BlaBla " + String(messageCounter++);
+        if (debug & 4) Serial.println("Sende LoRa-Nachricht: " + message);
+        uint8_t buffer[255];
+        uint8_t len = message.length();
+        for (uint8_t i = 0; i < len; i++) {
+          buffer[i] = message[i];
+        }
+        if (LT.transmit(buffer, len, 1000, TXpower, WAIT_TX)) {
+          if (debug & 4) Serial.println("Nachricht gesendet: " + message);
+          lastSentMessage = message;
+        } else {
+          Serial.println("Fehler beim Senden!");
+          lastSentMessage = "Fehler";
+        }
       }
-      pixels.setPixelColor(0, pixels.Color(0, 150, 0));
-      pixels.show();
+      // Tasterstatus aktualisieren
+      tasterLine = (buttonState == HIGH) ? "Taster: OFF" : "Taster: ON";
+      // Sendestatus aktualisieren
+      if (buttonState == LOW && lastSentMessage != "") {
+        sendLine = "Sende: " + lastSentMessage;
+      } else if (buttonState == HIGH) {
+        sendLine = "";  // Zurücksetzen, wenn Taster losgelassen
+      }
     }
-  } else if (!TasterState && TasterGedrueckt) {
-    TasterGedrueckt = false;
-    pixels.setPixelColor(0, pixels.Color(150, 0, 0));
-    pixels.show();
+  }
+  lastButtonState = reading;
+
+  // LoRa-Nachricht empfangen
+  uint8_t buffer[255];  // Puffer für empfangene Daten
+  uint8_t maxLen = sizeof(buffer);
+  int16_t len = LT.receive(buffer, maxLen, 2000, NO_WAIT);  // Nicht-blockierend
+  if (len > 0) {  // Prüfe, ob Daten empfangen wurden
+    String message = "";
+    for (uint8_t i = 0; i < len; i++) {
+      message += (char)buffer[i];
+    }
+    statusLine = "Board laeuft...";
+    secondsLine = "Sekunden: " + String(millis() / 1000);
+    tasterLine = (buttonState == HIGH) ? "Taster: OFF" : "Taster: ON";
+    sendLine = "Empf.: " + message + " RSSI: " + String(LT.readPacketRSSI());
+    lastPacketTime = millis();  // Zeit des letzten Pakets speichern
+    if (debug & 4) Serial.println("LoRa-Nachricht: " + message + " RSSI: " + String(LT.readPacketRSSI()));
+  } else {
+    // Wenn kein Paket empfangen, aber letzte Nachricht < 10s her, behalte Empfang
+    if (millis() - lastPacketTime < 10000) {
+      // Behalte sendLine vom letzten Paket
+    } else if (buttonState == HIGH) {
+      statusLine = "Board laeuft...";
+      secondsLine = "Sekunden: " + String(millis() / 1000);
+      tasterLine = "Taster: OFF";
+      sendLine = "";
+    } else {
+      statusLine = "Board laeuft...";
+      secondsLine = "Sekunden: " + String(millis() / 1000);
+      tasterLine = "Taster: ON";
+      if (lastSentMessage != "") sendLine = "Sende: " + lastSentMessage;
+    }
   }
 
-  // Nachlaufzeit-Logik
-  if (RelaisState && (millis() - RelaisEinZeit > RelaisNachlaufzeit)) {
-    RelaisState = false;
-    digitalWrite(RelaisPin, LOW);
-    pixels.setPixelColor(0, pixels.Color(150, 0, 0));
-    pixels.show();
-  }
+  adxl.readAccelerometer();
+  if (debug & 3) adxl.print();
 
-  // Beschleunigungsdaten lesen
-  readAccelerometer();
-  
-  // Daten ausgeben
-  Serial.print("Accel X: ");
-  Serial.print(gX);
-  Serial.print(" g, Y: ");
-  Serial.print(gY);
-  Serial.print(" g, Z: ");
-  Serial.print(gZ);
-  Serial.println(" g");
-  
-  // Bewegung testen
-  if (detectMovement(0.2)) {
+  if (adxl.detectMovement(0.2)) {
     Serial.println("Bewegung erkannt!");
-    // Optional: Relais bei Bewegung einschalten
-    if (!RelaisState) {
-      RelaisState = true;
-      digitalWrite(RelaisPin, HIGH);
-      RelaisEinZeit = millis();
-      pixels.setPixelColor(0, pixels.Color(0, 150, 0));
-      pixels.show();
-    }
+    // Optional: Bei Bewegung LoRa-Nachricht schicken
+    //pixels.setPixelColor(0, pixels.Color(0, 150, 0));
+    //pixels.show();
   }
 
   // Display aktualisieren
   display.clear();
-  display.drawString(0, 0, "AbsaugungsSensor");
-  display.drawString(0, 16, "Relais: " + String(RelaisState ? "Ein" : "Aus"));
-  display.drawString(0, 32, "X: " + String(gX) + " g");
-  display.drawString(0, 42, "Y: " + String(gY) + " g");
-  display.drawString(0, 52, "Z: " + String(gZ) + " g");
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(0, 0, statusLine);
+  display.drawString(0, 16, secondsLine);
+  display.drawString(0, 32, tasterLine);
+  display.drawString(0, 48, sendLine);
   display.display();
 
-  delay(500);
+  delay(100);  // Kürzerer Delay für flüssigere Updates
 }
