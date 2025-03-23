@@ -25,11 +25,6 @@
 extern uint8_t debugLevel;
 
 // Status-Variablen
-extern String statusLine;
-extern String secondsLine;
-extern String tasterLine;
-extern String sendLine;
-extern unsigned long lastPacketTime;
 extern const int8_t TXpower;
 extern int messageCounter; 
 

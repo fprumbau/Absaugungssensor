@@ -29,10 +29,6 @@ void setup() {
   // LoRa initialisieren
   if (!LT.begin(SS_LoRa, RST_LoRa, BUSY_LoRa, DIO1_LoRa, SW_LoRa, DEVICE_SX1262)) {
     Serial.println("LoRa-Initialisierung fehlgeschlagen!");
-    statusLine = "ERR";
-    secondsLine = "";
-    tasterLine = "";
-    sendLine = "LoRa-Fehler";
   } else {
     debugPrint(DEBUG_INIT, "LoRa initialisiert erfolgreich!");
     // LoRa-Parameter setzen (müssen mit Sender übereinstimmen)
@@ -65,55 +61,13 @@ void loop() {
         }
         if (LT.transmit(buffer, len, 1000, TXpower, WAIT_TX)) {
           debugPrint(LORA_MSGS, "Nachricht gesendet: " + message);
-          lastSentMessage = message;
         } else {
           Serial.println("Fehler beim Senden!");
-          lastSentMessage = "Fehler";
         }
-      }
-      // Tasterstatus aktualisieren
-      tasterLine = (buttonState == HIGH) ? "Taster: OFF" : "Taster: ON";
-      // Sendestatus aktualisieren
-      if (buttonState == LOW && lastSentMessage != "") {
-        sendLine = "Sende: " + lastSentMessage;
-      } else if (buttonState == HIGH) {
-        sendLine = "";  // Zurücksetzen, wenn Taster losgelassen
       }
     }
   }
   lastButtonState = reading;
-
-  // LoRa-Nachricht empfangen
-  uint8_t buffer[255];  // Puffer für empfangene Daten
-  uint8_t maxLen = sizeof(buffer);
-  int16_t len = LT.receive(buffer, maxLen, 2000, NO_WAIT);  // Nicht-blockierend
-  if (len > 0) {  // Prüfe, ob Daten empfangen wurden
-    String message = "";
-    for (uint8_t i = 0; i < len; i++) {
-      message += (char)buffer[i];
-    }
-    statusLine = "Board laeuft...";
-    secondsLine = "Sekunden: " + String(millis() / 1000);
-    tasterLine = (buttonState == HIGH) ? "Taster: OFF" : "Taster: ON";
-    sendLine = "Empf.: " + message + " RSSI: " + String(LT.readPacketRSSI());
-    lastPacketTime = millis();  // Zeit des letzten Pakets speichern
-    debugPrint(LORA_MSGS, "LoRa-Nachricht: " + message + " RSSI: " + String(LT.readPacketRSSI()));
-  } else {
-    // Wenn kein Paket empfangen, aber letzte Nachricht < 10s her, behalte Empfang
-    if (millis() - lastPacketTime < 10000) {
-      // Behalte sendLine vom letzten Paket
-    } else if (buttonState == HIGH) {
-      statusLine = "Board laeuft...";
-      secondsLine = "Sekunden: " + String(millis() / 1000);
-      tasterLine = "Taster: OFF";
-      sendLine = "";
-    } else {
-      statusLine = "Board laeuft...";
-      secondsLine = "Sekunden: " + String(millis() / 1000);
-      tasterLine = "Taster: ON";
-      if (lastSentMessage != "") sendLine = "Sende: " + lastSentMessage;
-    }
-  }
 
   adxl.update();
   if (debugLevel & 8) adxl.print();
