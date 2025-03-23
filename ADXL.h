@@ -30,4 +30,6 @@ private:
   void readAccelerometer();
 };
 
+extern ADXL adxl;
+
 #endif

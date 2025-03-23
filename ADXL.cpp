@@ -84,3 +84,5 @@ void ADXL::print() {
     Serial.print(gZ);
     Serial.println(" g");
 }
+
+ADXL adxl; //Definition

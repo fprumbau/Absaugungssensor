@@ -1,25 +1,5 @@
 #include "global.h"
 
-#define TASTER 19  // Taster an GPIO 19
-#define DEBOUNCE_DELAY 100  // Entprellungszeit in ms
-
-// Pin-Definitionen für Heltec WiFi LoRa 32 V3 (aus Forum-Posting)
-#define SDA_OLED 17
-#define SCL_OLED 18
-#define RST_OLED 21
-#define SS_LoRa 8
-#define SCK_LoRa 9
-#define MOSI_LoRa 10
-#define MISO_LoRa 11
-#define RST_LoRa 12
-#define BUSY_LoRa 13
-#define DIO1_LoRa 14
-#define SW_LoRa -1
-
-
-//Vibrationssensor
-ADXL adxl;
-
 // LoRa-Instanz
 SX126XLT LT;
 
@@ -38,23 +18,6 @@ int lastButtonState = HIGH;  // Letzter Tasterstatus
 int buttonState = HIGH;      // Aktueller Tasterstatus
 String lastSentMessage = "";  // Zuletzt gesendete Nachricht
 
-void VextON() {
-  pinMode(36, OUTPUT);  // Vext auf GPIO 36
-  digitalWrite(36, LOW);
-}
-
-void VextOFF() {
-  pinMode(36, OUTPUT);
-  digitalWrite(36, HIGH);
-}
-
-void displayReset() {
-  pinMode(RST_OLED, OUTPUT);
-  digitalWrite(RST_OLED, LOW);  // Reset aktivieren
-  delay(10);                    // Längeres Timing
-  digitalWrite(RST_OLED, HIGH); // Reset deaktivieren
-  delay(10);                    // Wartezeit nach Reset
-}
 
 void setup() {
   debugLevel = DEBUG_DISPLAY | LORA_MSGS; // Debug-Level setzen

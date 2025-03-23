@@ -20,7 +20,6 @@ public:
 private:
   SSD1306Wire oled;         // Internes SSD1306Wire-Objekt
   static constexpr int VEXT_PIN = 36; // Heltec-spezifischer Vext-Pin (angepasst)
-  static constexpr int RST_PIN = 21;  // Heltec-spezifischer Reset-Pin (anpassen, falls anders)
 };
 
 extern Display oled; // Globales Display-Objekt

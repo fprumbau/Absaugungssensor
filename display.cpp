@@ -4,7 +4,7 @@ Display::Display() : oled(OLED_ADDRESS, SDA_OLED, SCL_OLED) {}
 
 bool Display::init() {
   pinMode(VEXT_PIN, OUTPUT);
-  pinMode(RST_PIN, OUTPUT);
+  pinMode(RST_OLED, OUTPUT);
   vextOn(); // Vext einschalten für Display
   reset();  // Display-Reset durchführen
   Wire.begin(SDA_OLED, SCL_OLED);
@@ -17,9 +17,9 @@ bool Display::init() {
 }
 
 void Display::reset() {
-  digitalWrite(RST_PIN, LOW);  // Reset aktivieren
+  digitalWrite(RST_OLED, LOW);  // Reset aktivieren
   delay(10);                   // Längeres Timing
-  digitalWrite(RST_PIN, HIGH); // Reset deaktivieren
+  digitalWrite(RST_OLED, HIGH); // Reset deaktivieren
   delay(10);                   // Wartezeit nach Reset
   debugPrint(DEBUG_DISPLAY, "Display reset");
 }
