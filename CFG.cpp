@@ -8,7 +8,7 @@ bool CFG::initializeFS() {
     Serial.println("LittleFS Mount Failed even with format");
     return false;
   }
-  debugPrint(DEBUG_INIT, "LittleFS mounted successfully");
+  debugPrint(DEBUG_CONFIG, "LittleFS mounted successfully");
   return true;
 }
 
@@ -37,7 +37,7 @@ bool CFG::load() {
   if (doc[SSID_KEY].is<String>() && doc[PASS_KEY].is<String>()) {
     ssid = doc[SSID_KEY].as<String>();
     pass = doc[PASS_KEY].as<String>();
-    debugPrint(DEBUG_INIT, "Config loaded: SSID=" + ssid + ", Pass=" + pass);
+    debugPrint(DEBUG_CONFIG, "Config loaded: SSID=" + ssid + ", Pass=" + pass);
   } else {
     Serial.println("Config file invalid, keeping current values");
     file.close();
@@ -69,7 +69,7 @@ bool CFG::save() {
   }
 
   file.close();
-  debugPrint(DEBUG_INIT, "Config saved: SSID=" + ssid + ", Pass=" + pass);
+  debugPrint(DEBUG_CONFIG, "Config saved: SSID=" + ssid + ", Pass=" + pass);
   return true;
 }
 
@@ -103,7 +103,7 @@ const char* CFG::load(const String& key) {
     static String value;
     value = doc[key].as<String>();
     file.close();
-    debugPrint(DEBUG_INIT, "Loaded " + key + ": " + value);
+    debugPrint(DEBUG_CONFIG, "Loaded " + key + ": " + value);
     return value.c_str();
   } else {
     file.close();
@@ -138,14 +138,14 @@ bool CFG::setValue(const String& key, const String& value, bool saveNow) {
       return false;
     }
     file.close();
-    debugPrint(DEBUG_INIT, "Set and saved " + key + ": " + value);
+    debugPrint(DEBUG_CONFIG, "Set and saved " + key + ": " + value);
     return true;
   }
 
   if (saveNow) {
     return save();
   }
-  debugPrint(DEBUG_INIT, "Set " + key + ": " + value + " (not saved yet)");
+  debugPrint(DEBUG_CONFIG, "Set " + key + ": " + value + " (not saved yet)");
   return true;
 }
 
