@@ -16,6 +16,8 @@ bool ADXL::init() {
     if (deviceID == 0xE5) {
       writeRegister(ADXL345_REG_POWER_CTL, 0x08);
       writeRegister(ADXL345_REG_DATA_FORMAT, 0x00);
+      // Initiale Messung zur Synchronisation
+      readAccelerometer();
       initialized = true;
     } else {
       Serial.println("ADXL345 not detected!");
@@ -32,7 +34,6 @@ void ADXL::writeRegister(uint8_t registerAddress, uint8_t value) {
   Wire1.write(value);
   Wire1.endTransmission();
 }
-
 void ADXL::readAccelerometer() {
   uint8_t buffer[6];
   Wire1.beginTransmission(ADXL345_ADDRESS);
@@ -45,33 +46,21 @@ void ADXL::readAccelerometer() {
     accelX = (int16_t)((buffer[1] << 8) | buffer[0]);
     accelY = (int16_t)((buffer[3] << 8) | buffer[2]);
     accelZ = (int16_t)((buffer[5] << 8) | buffer[4]);
-    if (firstRun) {
-      // Erster Durchlauf: Nur Werte setzen, keine Deltas
-      gX = accelX * 0.0039;
-      gY = accelY * 0.0039;
-      gZ = accelZ * 0.0039;
-      prevGX = gX;
-      prevGY = gY;
-      prevGZ = gZ;
-      firstRun = false;
-    } else {
-      // Ab zweitem Durchlauf: Normale Aktualisierung
-      prevGX = gX;
-      gX = accelX * 0.0039;
-      prevGY = gY;
-      gY = accelY * 0.0039;
-      prevGZ = gZ;
-      gZ = accelZ * 0.0039;
-    }
+    prevGX = gX;
+    gX = accelX * 0.0039;
+    prevGY = gY;
+    gY = accelY * 0.0039;
+    prevGZ = gZ;
+    gZ = accelZ * 0.0039;
   } else {
     Serial.println("I2C Error reading accelerometer!");
   }
 }
 
 bool ADXL::detectMovement(float threshold) {
-  if (!initialized || firstRun) {
-    debugPrint(DEBUG_ADXL, "Skipping first run or not initialized");
-    return false; // Überspringe ersten Durchlauf
+  if (!initialized) {
+    debugPrint(DEBUG_ADXL, "ADXL not initialized");
+    return false;
   }
   float deltaX = abs(gX - prevGX);
   float deltaY = abs(gY - prevGY);
@@ -92,7 +81,6 @@ bool ADXL::detectMovement(float threshold) {
   }
   return movementDetected;
 }
-
 
 void ADXL::print() {
     // Daten ausgeben

@@ -1,7 +1,7 @@
 #include "global.h"
 
 void setup() {
-    debugLevel = LORA_MSGS | DEBUG_CONFIG | DEBUG_ADXL;
+    debugLevel = LORA_MSGS | DEBUG_CONFIG | DEBUG_ADXL | DEBUG_WIFI;
 
     Serial.begin(115200);
     while (!Serial) delay(10);
@@ -78,7 +78,7 @@ void loop() {
     } else if (!TasterState && TasterGedrueckt) {
         TasterGedrueckt = false;
         debugPrint(DEBUG_DISPLAY, "Taster losgelassen");
-        lora.send("Testnachricht", 1000, 10);
+        //lora.send("Testnachricht", 1000, 10);
     }
 
     wifi.loop();
@@ -112,13 +112,29 @@ void loop() {
         }
     }
 
+        // Neue Empfangslogik
+    uint8_t sensorId, action;
+    if (lora.receive(sensorId, action)) {
+        if (sensorId == SENSOR_ID) {
+            if (action == 3 && lastAction == 1) { // "started" empfangen
+                absaugungAktiv = true;
+                awaitingConfirmation = false;
+                debugPrint(LORA_MSGS, "Received confirmation: sensor" + String(SENSOR_ID) + ": started");
+            } else if (action == 4 && lastAction == 2) { // "gestoppt" empfangen
+                absaugungAktiv = false;
+                awaitingConfirmation = false;
+                debugPrint(LORA_MSGS, "Received confirmation: sensor" + String(SENSOR_ID) + ": gestoppt");
+            }
+        }
+    }
+
     oled.clear();
     oled.drawString(0, 0, "AbsaugungsSensor");
-    oled.drawString(0, 16, "Taster: " + String(TasterState ? "gedrückt" : "los"));
-    oled.drawString(0, 32, "WiFi: " + String(wifi.isActive() ? "aktiv" : "inaktiv"));
-    oled.drawString(0, 40, "X: " + String(adxl.getGX(), 2) + " g");
-    oled.drawString(0, 48, "Y: " + String(adxl.getGY(), 2) + " g");
-    oled.drawString(0, 56, "Z: " + String(adxl.getGZ(), 2) + " g");
+    oled.drawString(0, 13, "Taster: " + String(TasterState ? "gedrückt" : "los"));
+    oled.drawString(0, 26, "WiFi: " + String(wifi.isActive() ? "aktiv" : "inaktiv"));
+    oled.drawString(0, 34, "X: " + String(adxl.getGX(), 2) + " g");
+    oled.drawString(0, 42, "Y: " + String(adxl.getGY(), 2) + " g");
+    oled.drawString(0, 50, "Z: " + String(adxl.getGZ(), 2) + " g");
     oled.display();
 
     static bool lastTasterState = false;
@@ -127,7 +143,8 @@ void loop() {
                          ", X: " + String(adxl.getGX(), 2) + " g" +
                          ", Y: " + String(adxl.getGY(), 2) + " g" +
                          ", Z: " + String(adxl.getGZ(), 2) + " g";
-        lora.send(message, 1000, 10);
+        //lora.send(message, 1000, 10);
+        debugPrint(DEBUG_ADXL, message);
         lastTasterState = TasterState;
     }
 
