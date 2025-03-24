@@ -42,84 +42,80 @@ void setup() {
     debugPrint(DEBUG_DISPLAY, "Pass: " + String(config.getPass()));
 
     // initialize other the air updates
-    updater.init("sensor1"); //wird später in CFG abgelegt
+    updater.setup(); 
+    // Webserver-Routen
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+      wifi.resetTimeout();
+      String html = "<html><body><h1>WiFi Config</h1>";
+      html += "<form action='/config' method='post'>";
+      html += "SSID: <input type='text' name='ssid' value='" + String(config.getSSID()) + "'><br>";
+      html += "Pass: <input type='text' name='pass' value='" + String(config.getPass()) + "'><br>";
+      html += "<input type='submit' value='Save'></form>";
+      html += "<a href='/ota'>OTA Update</a></body></html>";
+      request->send(200, "text/html", html);
+      debugPrint(DEBUG_WIFI, "Main page accessed");
+    });    
 }
 
 void loop() {
 
-    if(!updater.stopForOTA) {
-
-        bool TasterState = digitalRead(TASTER_PIN) == LOW;
-
-        if (TasterState && !TasterGedrueckt) {
-          unsigned long currentTime = millis();
-          if (currentTime - TasterPressTime > TasterEntprellZeit) {
-            TasterGedrueckt = true;
-            TasterPressTime = currentTime;
-            debugPrint(DEBUG_DISPLAY, "Taster gedrückt");
-          }
-        } else if (!TasterState && TasterGedrueckt) {
-          unsigned long pressDuration = millis() - TasterPressTime;
-          if (pressDuration > WifiActivationTime && !wifi.isActive()) {
-            wifi.begin(config.getSSID(), config.getPass());
-            oled.clear();
-            oled.drawString(0, 0, "WiFi-Modus aktiviert");
-            oled.display();
-            server.begin();
-          }
-          TasterGedrueckt = false;
-          debugPrint(DEBUG_DISPLAY, "Taster losgelassen");
-        }
-
-        wifi.loop(); // Prüft Timeout
-
-        adxl.update();
-        if (adxl.detectMovement(0.2)) {
-          debugPrint(DEBUG_ADXL, "Bewegung erkannt");
-        }
-
+    if (updater.getUpdating()) {
+        updater.loop(); // OTA-Prozess abwickeln
         oled.clear();
-        oled.drawString(0, 0, "AbsaugungsSensor");
-        oled.drawString(0, 16, "Taster: " + String(TasterState ? "gedrückt" : "los"));
-        oled.drawString(0, 32, "WiFi: " + String(wifi.isActive() ? "aktiv" : "inaktiv"));
-        oled.drawString(0, 40, "X: " + String(adxl.getGX(), 2) + " g");
-        oled.drawString(0, 48, "Y: " + String(adxl.getGY(), 2) + " g");
-        oled.drawString(0, 56, "Z: " + String(adxl.getGZ(), 2) + " g");
+        oled.drawString(0, 0, "OTA Update läuft...");
         oled.display();
+        return; // Normaler Loop wird unterbrochen
+    }  
 
-        static bool lastTasterState = false;
-        if (TasterState != lastTasterState || adxl.detectMovement(0.2)) {
-          String message = "Taster: " + String(TasterState ? "gedrückt" : "los") +
-                          ", X: " + String(adxl.getGX(), 2) + " g" +
-                          ", Y: " + String(adxl.getGY(), 2) + " g" +
-                          ", Z: " + String(adxl.getGZ(), 2) + " g";
-          lora.send(message, 1000, 10);
-          lastTasterState = TasterState;
-        }
 
-        // Webserver-Routen
-        server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-          wifi.resetTimeout();
-          String html = "<html><body><h1>WiFi Config</h1>";
-          html += "<form action='/config' method='post'>";
-          html += "SSID: <input type='text' name='ssid' value='" + String(config.getSSID()) + "'><br>";
-          html += "Pass: <input type='text' name='pass' value='" + String(config.getPass()) + "'><br>";
-          html += "<input type='submit' value='Save'></form>";
-          html += "<a href='/ota'>OTA Update</a></body></html>";
-          request->send(200, "text/html", html);
-          debugPrint(DEBUG_WIFI, "Main page accessed");
-        });
+    bool TasterState = digitalRead(TASTER_PIN) == LOW;
 
-        delay(500);
-
+    if (TasterState && !TasterGedrueckt) {
+      unsigned long currentTime = millis();
+      if (currentTime - TasterPressTime > TasterEntprellZeit) {
+        TasterGedrueckt = true;
+        TasterPressTime = currentTime;
+        debugPrint(DEBUG_DISPLAY, "Taster gedrückt");
+      }
+    } else if (!TasterState && TasterGedrueckt) {
+      unsigned long pressDuration = millis() - TasterPressTime;
+      if (pressDuration > WifiActivationTime && !wifi.isActive()) {
+        wifi.begin(config.getSSID(), config.getPass());
+        oled.clear();
+        oled.drawString(0, 0, "WiFi-Modus aktiviert");
+        oled.display();
+        server.begin();
+      }
+      TasterGedrueckt = false;
+      debugPrint(DEBUG_DISPLAY, "Taster losgelassen");
     }
 
-    //xSemaphoreTake(semaphore, portMAX_DELAY); geht erst weiter, wenn erster Task das semaphore gegeben hat  
-    
-    //Restart erforderlich, wird durch updater-Objekt nach Upload einer neuen Firmware geregelt
-    if(updater.restartRequired) {
-      delay(2000);
-      ESP.restart();
+    wifi.loop(); // Prüft Timeout
+
+    adxl.update();
+    if (adxl.detectMovement(0.2)) {
+      debugPrint(DEBUG_ADXL, "Bewegung erkannt");
     }
+
+    oled.clear();
+    oled.drawString(0, 0, "AbsaugungsSensor");
+    oled.drawString(0, 16, "Taster: " + String(TasterState ? "gedrückt" : "los"));
+    oled.drawString(0, 32, "WiFi: " + String(wifi.isActive() ? "aktiv" : "inaktiv"));
+    oled.drawString(0, 40, "X: " + String(adxl.getGX(), 2) + " g");
+    oled.drawString(0, 48, "Y: " + String(adxl.getGY(), 2) + " g");
+    oled.drawString(0, 56, "Z: " + String(adxl.getGZ(), 2) + " g");
+    oled.display();
+
+    static bool lastTasterState = false;
+    if (TasterState != lastTasterState || adxl.detectMovement(0.2)) {
+      String message = "Taster: " + String(TasterState ? "gedrückt" : "los") +
+                      ", X: " + String(adxl.getGX(), 2) + " g" +
+                      ", Y: " + String(adxl.getGY(), 2) + " g" +
+                      ", Z: " + String(adxl.getGZ(), 2) + " g";
+      lora.send(message, 1000, 10);
+      lastTasterState = TasterState;
+    }
+
+    delay(500);
 
 }
