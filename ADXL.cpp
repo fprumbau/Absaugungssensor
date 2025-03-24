@@ -46,7 +46,7 @@ void ADXL::readAccelerometer() {
     accelY = (int16_t)((buffer[3] << 8) | buffer[2]);
     accelZ = (int16_t)((buffer[5] << 8) | buffer[4]);
     if (firstRun) {
-      // Initialisiere prev-Werte beim ersten Durchlauf
+      // Erster Durchlauf: Nur Werte setzen, keine Deltas
       gX = accelX * 0.0039;
       gY = accelY * 0.0039;
       gZ = accelZ * 0.0039;
@@ -55,6 +55,7 @@ void ADXL::readAccelerometer() {
       prevGZ = gZ;
       firstRun = false;
     } else {
+      // Ab zweitem Durchlauf: Normale Aktualisierung
       prevGX = gX;
       gX = accelX * 0.0039;
       prevGY = gY;
@@ -68,14 +69,15 @@ void ADXL::readAccelerometer() {
 }
 
 bool ADXL::detectMovement(float threshold) {
-  if (!initialized) return false; // Überspringe ersten Durchlauf
-
+  if (!initialized || firstRun) {
+    debugPrint(DEBUG_ADXL, "Skipping first run or not initialized");
+    return false; // Überspringe ersten Durchlauf
+  }
   float deltaX = abs(gX - prevGX);
   float deltaY = abs(gY - prevGY);
   float deltaZ = abs(gZ - prevGZ);
 
   bool movementDetected = false;
-
   if (deltaX > threshold) {
     debugPrint(DEBUG_ADXL, "DeltaX > threshold (" + String(deltaX, 2) + " > " + String(threshold, 2) + ")");
     movementDetected = true;
@@ -88,9 +90,9 @@ bool ADXL::detectMovement(float threshold) {
     debugPrint(DEBUG_ADXL, "DeltaZ > threshold (" + String(deltaZ, 2) + " > " + String(threshold, 2) + ")");
     movementDetected = true;
   }
-
   return movementDetected;
 }
+
 
 void ADXL::print() {
     // Daten ausgeben
