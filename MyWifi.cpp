@@ -21,7 +21,7 @@ bool MyWifi::begin(const char* ssid, const char* password) {
     debugPrint(DEBUG_WIFI, "WiFi connected: " + String(ssid));
     return true;
   } else {
-    Serial.println("WiFi connection failed");
+    Serial.println("WiFi connection failed for SSID: " + String(ssid) + " and passphrase " + String(password));
     WiFi.disconnect();
     return false;
   }

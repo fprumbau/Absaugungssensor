@@ -4,6 +4,19 @@
 OTA::OTA() : isUpdating(false) {}
 
 void OTA::setup() {
+    server.on("/ota", HTTP_GET, [this](AsyncWebServerRequest *request){
+        wifi.resetTimeout();
+        String html = "<html><body><h1>OTA Update</h1>";
+        html += "<form method='POST' action='/update' enctype='multipart/form-data'>";
+        html += "<input type='file' name='update'><br>";
+        html += "<input type='submit' value='Update'></form>";
+        html += "<h2>Changelog</h2>";
+        html += "<ul><li>2025-03-25: Initial version with OTA support</li></ul>";
+        html += "<a href='/'>Back</a></body></html>";
+        request->send(200, "text/html", html);
+        debugPrint(DEBUG_WIFI, "OTA page accessed");
+    });
+
     server.on("/update", HTTP_POST, [this](AsyncWebServerRequest *request) {
         isUpdating = !Update.hasError();
         AsyncWebServerResponse *response = request->beginResponse(
@@ -42,4 +55,4 @@ bool OTA::getUpdating() {
     return isUpdating;
 }
 
-OTA updater;
+OTA updater; // Definition des Objekts hier

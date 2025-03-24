@@ -32,14 +32,14 @@ void setup() {
       while (1);
     }
 
-    // Initiale Konfiguration schreiben (einmalig ausführen)
-    //config.setValue("ssid", "meine_ssid", true);
-    //config.setValue("pass", "mein_pass", true); // Speichert sofort mit true
-
-        //Konfig lesen
-    config.load(); // Lade Konfiguration (SSID, Passwort)
-    debugPrint(DEBUG_DISPLAY, "SSID: " + String(config.getSSID()));
-    debugPrint(DEBUG_DISPLAY, "Pass: " + String(config.getPass()));
+    if (!config.load()) {
+      debugPrint(DEBUG_CONFIG, "Config load failed, setting and saving new values");
+      // Initiale Konfiguration schreiben (einmalig ausführen)
+      config.setValue("ssid", "P...y", true);
+      config.setValue("pass", "5...7", true); // Speichert sofort mit true
+    } else {
+      debugPrint(DEBUG_CONFIG, "Config loaded: SSID=" + String(config.getSSID()) + ", Pass=" + String(config.getPass()));
+    }
 
     // initialize other the air updates
     updater.setup(); 

@@ -4,18 +4,11 @@
 CFG::CFG() : ssid("default_ssid"), pass("default_pass") {}
 
 bool CFG::initializeFS() {
-  if (!LittleFS.begin()) {
-    Serial.println("LittleFS Mount Failed, attempting format...");
-    if (!LittleFS.format()) {
-      Serial.println("LittleFS Format Failed");
-      return false;
-    }
-    if (!LittleFS.begin()) {
-      Serial.println("LittleFS Mount Failed after format");
-      return false;
-    }
-    debugPrint(DEBUG_DISPLAY, "LittleFS formatted and mounted");
+  if (!LittleFS.begin(true)) { // true = format on fail
+    Serial.println("LittleFS Mount Failed even with format");
+    return false;
   }
+  debugPrint(DEBUG_INIT, "LittleFS mounted successfully");
   return true;
 }
 
@@ -25,8 +18,11 @@ bool CFG::load() {
   }
   File file = LittleFS.open(CFG_FILE, "r");
   if (!file) {
-    Serial.println("No config file found, using defaults");
-    save(); // Erstelle eine neue Datei mit Standardwerten
+    Serial.println("No config file found, creating new one with current values");
+    if (!save()) {
+      Serial.println("Failed to create new config file");
+      return false;
+    }
     return true;
   }
 
@@ -35,24 +31,17 @@ bool CFG::load() {
   if (error) {
     Serial.println("Failed to parse config file: " + String(error.c_str()));
     file.close();
-    Serial.println("Reinitializing LittleFS...");
-    LittleFS.end();
-    if (!initializeFS()) {
-      return false;
-    }
-    save(); // Erstelle eine neue Datei mit Standardwerten
-    return true;
+    return false;
   }
 
   if (doc[SSID_KEY].is<String>() && doc[PASS_KEY].is<String>()) {
     ssid = doc[SSID_KEY].as<String>();
     pass = doc[PASS_KEY].as<String>();
-    debugPrint(DEBUG_DISPLAY, "Config loaded: SSID=" + ssid);
+    debugPrint(DEBUG_INIT, "Config loaded: SSID=" + ssid + ", Pass=" + pass);
   } else {
-    Serial.println("Config file invalid, using defaults");
+    Serial.println("Config file invalid, keeping current values");
     file.close();
-    save(); // Überschreibe mit Standardwerten
-    return true;
+    return false;
   }
 
   file.close();
@@ -80,7 +69,7 @@ bool CFG::save() {
   }
 
   file.close();
-  debugPrint(DEBUG_DISPLAY, "Config saved: SSID=" + ssid);
+  debugPrint(DEBUG_INIT, "Config saved: SSID=" + ssid + ", Pass=" + pass);
   return true;
 }
 
@@ -111,8 +100,10 @@ const char* CFG::load(const String& key) {
   }
 
   if (doc[key].is<String>()) {
-    String value = doc[key].as<String>();
+    static String value;
+    value = doc[key].as<String>();
     file.close();
+    debugPrint(DEBUG_INIT, "Loaded " + key + ": " + value);
     return value.c_str();
   } else {
     file.close();
@@ -126,7 +117,6 @@ bool CFG::setValue(const String& key, const String& value, bool saveNow) {
   } else if (key == PASS_KEY) {
     pass = value;
   } else {
-    // Für zukünftige Schlüssel: nur in Datei speichern, ohne interne Variable
     JsonDocument doc;
     File file = LittleFS.open(CFG_FILE, "r");
     if (file) {
@@ -148,14 +138,14 @@ bool CFG::setValue(const String& key, const String& value, bool saveNow) {
       return false;
     }
     file.close();
-    debugPrint(DEBUG_DISPLAY, "Set and saved " + key + ": " + value);
+    debugPrint(DEBUG_INIT, "Set and saved " + key + ": " + value);
     return true;
   }
 
   if (saveNow) {
     return save();
   }
-  debugPrint(DEBUG_DISPLAY, "Set " + key + ": " + value + " (not saved yet)");
+  debugPrint(DEBUG_INIT, "Set " + key + ": " + value + " (not saved yet)");
   return true;
 }
 

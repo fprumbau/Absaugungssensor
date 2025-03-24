@@ -31,7 +31,6 @@
 #define DEBUG_CONFIG  (1 << 6) // 32
 #define DEBUG_WIFI    (1 << 7) // 64
 
-extern OTA updater; //Over-the-air updater
 extern AsyncWebServer server; 
 
 extern uint8_t debugLevel;
