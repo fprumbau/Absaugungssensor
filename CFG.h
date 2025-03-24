@@ -9,19 +9,19 @@ private:
   const char* SSID_KEY = "ssid";
   const char* PASS_KEY = "pass";
   const char* CFG_FILE = "/config.json";
-  String ssid; // String statt const char* für dynamische Werte
+  String ssid;
   String pass;
 
-  bool initializeFS(); // Private Methode für FS-Initialisierung
+  bool initializeFS();
 
 public:
   CFG();
-  bool load();              // Lädt die Konfiguration aus LittleFS
-  bool save();              // Speichert die Konfiguration in LittleFS
-  const char* getSSID() const; // Gibt SSID zurück
-  const char* getPass() const; // Gibt Passwort zurück
-  const char* load(const String& key); // Lädt einen spezifischen Wert
-  bool setValue(const String& key, const String& value, bool saveNow = true); // Setzt einen Wert und speichert optional
+  bool load();
+  bool save();
+  const char* getSSID() const;
+  const char* getPass() const;
+  const char* load(const String& key);
+  bool setValue(const String& key, const String& value, bool saveNow = true);
 };
 
 extern CFG config;

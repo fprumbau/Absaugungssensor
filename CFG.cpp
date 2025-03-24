@@ -26,8 +26,14 @@ bool CFG::load() {
     return true;
   }
 
+  String content;
+  while (file.available()) {
+    content += (char)file.read();
+  }
+  debugPrint(DEBUG_CONFIG, "Config file content: " + content);
+
   JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, file);
+  DeserializationError error = deserializeJson(doc, content);
   if (error) {
     Serial.println("Failed to parse config file: " + String(error.c_str()));
     file.close();
@@ -62,7 +68,11 @@ bool CFG::save() {
   doc[SSID_KEY] = ssid;
   doc[PASS_KEY] = pass;
 
-  if (serializeJson(doc, file) == 0) {
+  String jsonOutput;
+  serializeJson(doc, jsonOutput);
+  debugPrint(DEBUG_CONFIG, "Saving config: " + jsonOutput);
+
+  if (file.print(jsonOutput) == 0) {
     Serial.println("Failed to write to config file");
     file.close();
     return false;
@@ -91,8 +101,14 @@ const char* CFG::load(const String& key) {
     return "";
   }
 
+  String content;
+  while (file.available()) {
+    content += (char)file.read();
+  }
+  debugPrint(DEBUG_CONFIG, "Config file content: " + content);
+
   JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, file);
+  DeserializationError error = deserializeJson(doc, content);
   if (error) {
     Serial.println("Failed to parse config file: " + String(error.c_str()));
     file.close();
