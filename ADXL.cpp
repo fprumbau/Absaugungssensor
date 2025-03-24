@@ -45,32 +45,40 @@ void ADXL::readAccelerometer() {
     accelX = (int16_t)((buffer[1] << 8) | buffer[0]);
     accelY = (int16_t)((buffer[3] << 8) | buffer[2]);
     accelZ = (int16_t)((buffer[5] << 8) | buffer[4]);
+    prevGX = gX;
     gX = accelX * 0.0039;
+    prevGY = gY;
     gY = accelY * 0.0039;
+    prevGZ = gZ;
     gZ = accelZ * 0.0039;
+    firstRun = false; // Erster Durchlauf abgeschlossen
   } else {
     Serial.println("I2C Error reading accelerometer!");
   }
 }
 
-void ADXL::update() {
-  if (initialized) readAccelerometer();
-}
-
 bool ADXL::detectMovement(float threshold) {
-  static float prevGX = 0, prevGY = 0, prevGZ = 0;
+  if (!initialized || firstRun) return false; // Überspringe ersten Durchlauf
+
+  float deltaX = abs(gX - prevGX);
+  float deltaY = abs(gY - prevGY);
+  float deltaZ = abs(gZ - prevGZ);
+
   bool movementDetected = false;
-  if (initialized) {
-    float deltaX = abs(gX - prevGX);
-    float deltaY = abs(gY - prevGY);
-    float deltaZ = abs(gZ - prevGZ);
-    if (deltaX > threshold || deltaY > threshold || deltaZ > threshold) {
-      movementDetected = true;
-    }
-    prevGX = gX;
-    prevGY = gY;
-    prevGZ = gZ;
+
+  if (deltaX > threshold) {
+    debugPrint(DEBUG_ADXL, "DeltaX > threshold (" + String(deltaX, 2) + " > " + String(threshold, 2) + ")");
+    movementDetected = true;
   }
+  if (deltaY > threshold) {
+    debugPrint(DEBUG_ADXL, "DeltaY > threshold (" + String(deltaY, 2) + " > " + String(threshold, 2) + ")");
+    movementDetected = true;
+  }
+  if (deltaZ > threshold) {
+    debugPrint(DEBUG_ADXL, "DeltaZ > threshold (" + String(deltaZ, 2) + " > " + String(threshold, 2) + ")");
+    movementDetected = true;
+  }
+
   return movementDetected;
 }
 

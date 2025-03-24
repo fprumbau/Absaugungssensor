@@ -8,7 +8,7 @@ public:
   ADXL();
   bool init();
   void print();
-  void update();
+  void readAccelerometer();
   bool detectMovement(float threshold);
   float getGX() const { return gX; }
   float getGY() const { return gY; }
@@ -24,10 +24,11 @@ private:
 
   int16_t accelX, accelY, accelZ;
   float gX, gY, gZ;
+  float prevGX, prevGY, prevGZ; // Statische Werte jetzt als Klassenvariablen
   bool initialized;
+  bool firstRun = true; // Flag für ersten Durchlauf
 
   void writeRegister(uint8_t registerAddress, uint8_t value);
-  void readAccelerometer();
 };
 
 extern ADXL adxl;

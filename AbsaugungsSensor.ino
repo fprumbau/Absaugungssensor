@@ -1,7 +1,7 @@
 #include "global.h"
 
 void setup() {
-    debugLevel = DEBUG_DISPLAY | LORA_MSGS | DEBUG_CONFIG | DEBUG_WIFI;
+    debugLevel = LORA_MSGS | DEBUG_CONFIG | DEBUG_ADXL;
 
     Serial.begin(115200);
     while (!Serial) delay(10);
@@ -78,16 +78,38 @@ void loop() {
     } else if (!TasterState && TasterGedrueckt) {
         TasterGedrueckt = false;
         debugPrint(DEBUG_DISPLAY, "Taster losgelassen");
-        lora.send("Testnachricht", 1000, 10); // Bestehende String-Version
+        lora.send("Testnachricht", 1000, 10);
     }
 
     wifi.loop();
 
-    adxl.update();
-    if (adxl.detectMovement(0.2)) {
-        debugPrint(DEBUG_ADXL, "Bewegung erkannt");
-        // Teste neues Protokoll mit einer einfachen Aktion
-        lora.send(1); // Sende "starte"
+    adxl.readAccelerometer();
+    bool vibrationDetected = adxl.detectMovement(0.2);
+
+    static bool absaugungAktiv = false;
+    static unsigned long lastSendTime = 0;
+    static bool awaitingConfirmation = false;
+    static uint8_t lastAction = 0;
+
+    if (vibrationDetected && !absaugungAktiv && !awaitingConfirmation) {
+        awaitingConfirmation = true;
+        lastAction = 1; // Start
+        if (lora.send(lastAction)) {
+            lastSendTime = millis();
+            debugPrint(LORA_MSGS, "Vibration detected, start sent");
+        } else {
+            debugPrint(LORA_MSGS, "Vibration detected, start send failed");
+            awaitingConfirmation = false;
+        }
+    }
+
+    if (awaitingConfirmation && (millis() - lastSendTime >= 3000)) {
+        if (lora.send(lastAction)) {
+            lastSendTime = millis();
+            debugPrint(LORA_MSGS, "Retry sent: sensor" + String(SENSOR_ID) + ": " + String(lora.actionToString(lastAction)));
+        } else {
+            debugPrint(LORA_MSGS, "Retry failed: sensor" + String(SENSOR_ID) + ": " + String(lora.actionToString(lastAction)));
+        }
     }
 
     oled.clear();
@@ -100,7 +122,7 @@ void loop() {
     oled.display();
 
     static bool lastTasterState = false;
-    if (TasterState != lastTasterState || adxl.detectMovement(0.2)) {
+    if (TasterState != lastTasterState || vibrationDetected) {
         String message = "Taster: " + String(TasterState ? "gedrückt" : "los") +
                          ", X: " + String(adxl.getGX(), 2) + " g" +
                          ", Y: " + String(adxl.getGY(), 2) + " g" +
