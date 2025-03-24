@@ -1,6 +1,6 @@
 #include "MyWifi.h"
 
-MyWifi::MyWifi() : active(false), startTime(0) {}
+MyWifi::MyWifi(AsyncWebServer& srv) : server(srv), active(false), startTime(0) {}
 
 bool MyWifi::begin(const char* ssid, const char* password) {
   this->ssid = ssid;
@@ -11,13 +11,14 @@ bool MyWifi::begin(const char* ssid, const char* password) {
   unsigned long connectStart = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - connectStart < 10000) {
     delay(500);
-    debugPrint(DEBUG_DISPLAY, "Connecting to WiFi...");
+    debugPrint(DEBUG_WIFI, "Connecting to WiFi...");
   }
 
   if (WiFi.status() == WL_CONNECTED) {
     active = true;
     startTime = millis();
-    debugPrint(DEBUG_DISPLAY, "WiFi connected: " + String(ssid));
+    server.begin();
+    debugPrint(DEBUG_WIFI, "WiFi connected: " + String(ssid));
     return true;
   } else {
     Serial.println("WiFi connection failed");
@@ -31,7 +32,7 @@ void MyWifi::loop() {
 
   if (millis() - startTime > TIMEOUT_MS) {
     disconnect();
-    debugPrint(DEBUG_DISPLAY, "WiFi timeout reached");
+    debugPrint(DEBUG_WIFI, "WiFi timeout reached");
   }
 }
 
@@ -40,9 +41,10 @@ bool MyWifi::isConnected() {
 }
 
 void MyWifi::disconnect() {
+  server.end(); // Webserver stoppen
   WiFi.disconnect();
   active = false;
-  debugPrint(DEBUG_DISPLAY, "WiFi disconnected");
+  debugPrint(DEBUG_WIFI, "WiFi disconnected");
 }
 
 bool MyWifi::isActive() const {
@@ -52,9 +54,8 @@ bool MyWifi::isActive() const {
 void MyWifi::resetTimeout() {
   if (active) {
     startTime = millis();
-    debugPrint(DEBUG_DISPLAY, "WiFi timeout reset");
+    debugPrint(DEBUG_WIFI, "WiFi timeout reset");
   }
 }
 
-MyWifi wifi;
-const long WifiActivationTime = 6000; // 6 Sekunden
+MyWifi wifi(server); // Instanz mit Server-Referenz

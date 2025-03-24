@@ -97,6 +97,19 @@ void loop() {
           lastTasterState = TasterState;
         }
 
+        // Webserver-Routen
+        server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+          wifi.resetTimeout();
+          String html = "<html><body><h1>WiFi Config</h1>";
+          html += "<form action='/config' method='post'>";
+          html += "SSID: <input type='text' name='ssid' value='" + String(config.getSSID()) + "'><br>";
+          html += "Pass: <input type='text' name='pass' value='" + String(config.getPass()) + "'><br>";
+          html += "<input type='submit' value='Save'></form>";
+          html += "<a href='/ota'>OTA Update</a></body></html>";
+          request->send(200, "text/html", html);
+          debugPrint(DEBUG_WIFI, "Main page accessed");
+        });
+
         delay(500);
 
     }
