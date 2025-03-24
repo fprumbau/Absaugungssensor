@@ -11,7 +11,7 @@ bool MyWifi::begin(const char* ssid, const char* password) {
   unsigned long connectStart = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - connectStart < 10000) {
     delay(500);
-    debugPrint(DEBUG_WIFI, "Connecting to WiFi...");
+    debugPrint(DEBUG_WIFI, "Connecting to WiFi...");  
   }
 
   if (WiFi.status() == WL_CONNECTED) {

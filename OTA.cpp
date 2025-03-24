@@ -11,7 +11,10 @@ void OTA::setup() {
         html += "<input type='file' name='update'><br>";
         html += "<input type='submit' value='Update'></form>";
         html += "<h2>Changelog</h2>";
-        html += "<ul><li>2025-03-25: Initial version with OTA support</li></ul>";
+        html += "<ul>";
+        html += "<li>2025-03-25: Initial version with OTA support</li>";
+        html += "<li>2025-03-26: Added WiFi activation</li>";
+        html += "</ul>";
         html += "<a href='/'>Back</a></body></html>";
         request->send(200, "text/html", html);
         debugPrint(DEBUG_WIFI, "OTA page accessed");
@@ -55,4 +58,4 @@ bool OTA::getUpdating() {
     return isUpdating;
 }
 
-OTA updater; // Definition des Objekts hier
+OTA updater;

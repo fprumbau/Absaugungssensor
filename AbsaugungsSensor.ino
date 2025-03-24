@@ -2,7 +2,7 @@
 
 void setup() {
 
-    debugLevel = DEBUG_DISPLAY | LORA_MSGS | DEBUG_CONFIG; // Debug-Level setzen
+    debugLevel = DEBUG_DISPLAY | LORA_MSGS | DEBUG_CONFIG | DEBUG_WIFI; // Debug-Level setzen
 
     Serial.begin(115200);
     while (!Serial) delay(10);
@@ -66,27 +66,28 @@ void loop() {
     }  
 
 
-    bool TasterState = digitalRead(TASTER_PIN) == LOW;
+  bool TasterState = digitalRead(TASTER_PIN) == LOW;
 
-    if (TasterState && !TasterGedrueckt) {
-      unsigned long currentTime = millis();
-      if (currentTime - TasterPressTime > TasterEntprellZeit) {
-        TasterGedrueckt = true;
-        TasterPressTime = currentTime;
-        debugPrint(DEBUG_DISPLAY, "Taster gedrückt");
-      }
-    } else if (!TasterState && TasterGedrueckt) {
-      unsigned long pressDuration = millis() - TasterPressTime;
-      if (pressDuration > WifiActivationTime && !wifi.isActive()) {
-        wifi.begin(config.getSSID(), config.getPass());
-        oled.clear();
-        oled.drawString(0, 0, "WiFi-Modus aktiviert");
-        oled.display();
-        server.begin();
-      }
-      TasterGedrueckt = false;
-      debugPrint(DEBUG_DISPLAY, "Taster losgelassen");
+  if (TasterState && !TasterGedrueckt) {
+    unsigned long currentTime = millis();
+    if (currentTime - TasterPressTime > TasterEntprellZeit) {
+      TasterGedrueckt = true;
+      TasterPressTime = currentTime;
+      debugPrint(DEBUG_DISPLAY, "Taster gedrückt");
     }
+  } else if (TasterState && TasterGedrueckt) {
+    unsigned long pressDuration = millis() - TasterPressTime;
+    if (pressDuration > WifiActivationTime && !wifi.isActive()) {
+      debugPrint(DEBUG_WIFI, "Starting WiFi with SSID=" + String(config.getSSID()) + ", Pass=" + String(config.getPass()));
+      wifi.begin(config.getSSID(), config.getPass());
+      oled.clear();
+      oled.drawString(0, 0, "WiFi-Modus aktiviert");
+      oled.display();
+    }
+  } else if (!TasterState && TasterGedrueckt) {
+    TasterGedrueckt = false;
+    debugPrint(DEBUG_DISPLAY, "Taster losgelassen");
+  }
 
     wifi.loop(); // Prüft Timeout
 
