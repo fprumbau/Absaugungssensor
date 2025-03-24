@@ -59,3 +59,4 @@ void MyWifi::resetTimeout() {
 }
 
 MyWifi wifi(server); // Instanz mit Server-Referenz
+const long WifiActivationTime = 6000; // 6 Sekunden

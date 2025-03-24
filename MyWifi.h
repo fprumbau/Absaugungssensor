@@ -25,5 +25,6 @@ private:
 };
 
 extern MyWifi wifi;
+extern const long WifiActivationTime; 
 
 #endif
