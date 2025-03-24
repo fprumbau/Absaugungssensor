@@ -7,6 +7,9 @@
 //DEBUG_ADXL: ADXL-Ausgaben
 uint8_t debugLevel = LORA_MSGS || DEBUG_ADXL;  
 
+AsyncWebServer server(80);
+OTA updater;
+
 // Status-Variablen
 const int8_t TXpower = 10;  // 10 dBm – Sendeleistung
 int messageCounter = 1;  // Laufender Zähler für Nachrichten

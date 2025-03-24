@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
+#include <ESPAsyncWebServer.h>
 
 #include "SX126XLT.h"
 #include <SPI.h>
@@ -11,6 +12,7 @@
 #include "ADXL.h"
 #include "LoRa.h"
 #include "MyWifi.h"
+#include "OTA.h"
 #include "display.h"
 #include "SSD1306Wire.h"
 #include "pins_arduino.h"
@@ -28,6 +30,9 @@
 #define DEBUG_DISPLAY (1 << 5) // 16
 #define DEBUG_CONFIG  (1 << 6) // 32
 #define DEBUG_WIFI    (1 << 7) // 64
+
+extern OTA updater; //Over-the-air updater
+extern AsyncWebServer server; 
 
 extern uint8_t debugLevel;
 

@@ -40,56 +40,73 @@ void setup() {
     config.load(); // Lade Konfiguration (SSID, Passwort)
     debugPrint(DEBUG_DISPLAY, "SSID: " + String(config.getSSID()));
     debugPrint(DEBUG_DISPLAY, "Pass: " + String(config.getPass()));
+
+    // initialize other the air updates
+    updater.init("sensor1"); //wird später in CFG abgelegt
 }
 
 void loop() {
 
-    bool TasterState = digitalRead(TASTER_PIN) == LOW;
+    if(!updater.stopForOTA) {
 
-    if (TasterState && !TasterGedrueckt) {
-      unsigned long currentTime = millis();
-      if (currentTime - TasterPressTime > TasterEntprellZeit) {
-        TasterGedrueckt = true;
-        TasterPressTime = currentTime;
-        debugPrint(DEBUG_DISPLAY, "Taster gedrückt");
-      }
-    } else if (!TasterState && TasterGedrueckt) {
-      unsigned long pressDuration = millis() - TasterPressTime;
-      if (pressDuration > WifiActivationTime && !wifi.isActive()) {
-        wifi.begin(config.getSSID(), config.getPass());
+        bool TasterState = digitalRead(TASTER_PIN) == LOW;
+
+        if (TasterState && !TasterGedrueckt) {
+          unsigned long currentTime = millis();
+          if (currentTime - TasterPressTime > TasterEntprellZeit) {
+            TasterGedrueckt = true;
+            TasterPressTime = currentTime;
+            debugPrint(DEBUG_DISPLAY, "Taster gedrückt");
+          }
+        } else if (!TasterState && TasterGedrueckt) {
+          unsigned long pressDuration = millis() - TasterPressTime;
+          if (pressDuration > WifiActivationTime && !wifi.isActive()) {
+            wifi.begin(config.getSSID(), config.getPass());
+            oled.clear();
+            oled.drawString(0, 0, "WiFi-Modus aktiviert");
+            oled.display();
+            server.begin();
+          }
+          TasterGedrueckt = false;
+          debugPrint(DEBUG_DISPLAY, "Taster losgelassen");
+        }
+
+        wifi.loop(); // Prüft Timeout
+
+        adxl.update();
+        if (adxl.detectMovement(0.2)) {
+          debugPrint(DEBUG_ADXL, "Bewegung erkannt");
+        }
+
         oled.clear();
-        oled.drawString(0, 0, "WiFi-Modus aktiviert");
+        oled.drawString(0, 0, "AbsaugungsSensor");
+        oled.drawString(0, 16, "Taster: " + String(TasterState ? "gedrückt" : "los"));
+        oled.drawString(0, 32, "WiFi: " + String(wifi.isActive() ? "aktiv" : "inaktiv"));
+        oled.drawString(0, 40, "X: " + String(adxl.getGX(), 2) + " g");
+        oled.drawString(0, 48, "Y: " + String(adxl.getGY(), 2) + " g");
+        oled.drawString(0, 56, "Z: " + String(adxl.getGZ(), 2) + " g");
         oled.display();
-      }
-      TasterGedrueckt = false;
-      debugPrint(DEBUG_DISPLAY, "Taster losgelassen");
+
+        static bool lastTasterState = false;
+        if (TasterState != lastTasterState || adxl.detectMovement(0.2)) {
+          String message = "Taster: " + String(TasterState ? "gedrückt" : "los") +
+                          ", X: " + String(adxl.getGX(), 2) + " g" +
+                          ", Y: " + String(adxl.getGY(), 2) + " g" +
+                          ", Z: " + String(adxl.getGZ(), 2) + " g";
+          lora.send(message, 1000, 10);
+          lastTasterState = TasterState;
+        }
+
+        delay(500);
+
     }
 
-    wifi.loop(); // Prüft Timeout
-
-    adxl.update();
-    if (adxl.detectMovement(0.2)) {
-      debugPrint(DEBUG_ADXL, "Bewegung erkannt");
+    //xSemaphoreTake(semaphore, portMAX_DELAY); geht erst weiter, wenn erster Task das semaphore gegeben hat  
+    
+    //Restart erforderlich, wird durch updater-Objekt nach Upload einer neuen Firmware geregelt
+    if(updater.restartRequired) {
+      delay(2000);
+      ESP.restart();
     }
 
-    oled.clear();
-    oled.drawString(0, 0, "AbsaugungsSensor");
-    oled.drawString(0, 16, "Taster: " + String(TasterState ? "gedrückt" : "los"));
-    oled.drawString(0, 32, "WiFi: " + String(wifi.isActive() ? "aktiv" : "inaktiv"));
-    oled.drawString(0, 40, "X: " + String(adxl.getGX(), 2) + " g");
-    oled.drawString(0, 48, "Y: " + String(adxl.getGY(), 2) + " g");
-    oled.drawString(0, 56, "Z: " + String(adxl.getGZ(), 2) + " g");
-    oled.display();
-
-    static bool lastTasterState = false;
-    if (TasterState != lastTasterState || adxl.detectMovement(0.2)) {
-      String message = "Taster: " + String(TasterState ? "gedrückt" : "los") +
-                      ", X: " + String(adxl.getGX(), 2) + " g" +
-                      ", Y: " + String(adxl.getGY(), 2) + " g" +
-                      ", Z: " + String(adxl.getGZ(), 2) + " g";
-      lora.send(message, 1000, 10);
-      lastTasterState = TasterState;
-    }
-
-    delay(500);
 }
