@@ -45,20 +45,30 @@ void ADXL::readAccelerometer() {
     accelX = (int16_t)((buffer[1] << 8) | buffer[0]);
     accelY = (int16_t)((buffer[3] << 8) | buffer[2]);
     accelZ = (int16_t)((buffer[5] << 8) | buffer[4]);
-    prevGX = gX;
-    gX = accelX * 0.0039;
-    prevGY = gY;
-    gY = accelY * 0.0039;
-    prevGZ = gZ;
-    gZ = accelZ * 0.0039;
-    firstRun = false; // Erster Durchlauf abgeschlossen
+    if (firstRun) {
+      // Initialisiere prev-Werte beim ersten Durchlauf
+      gX = accelX * 0.0039;
+      gY = accelY * 0.0039;
+      gZ = accelZ * 0.0039;
+      prevGX = gX;
+      prevGY = gY;
+      prevGZ = gZ;
+      firstRun = false;
+    } else {
+      prevGX = gX;
+      gX = accelX * 0.0039;
+      prevGY = gY;
+      gY = accelY * 0.0039;
+      prevGZ = gZ;
+      gZ = accelZ * 0.0039;
+    }
   } else {
     Serial.println("I2C Error reading accelerometer!");
   }
 }
 
 bool ADXL::detectMovement(float threshold) {
-  if (!initialized || firstRun) return false; // Überspringe ersten Durchlauf
+  if (!initialized) return false; // Überspringe ersten Durchlauf
 
   float deltaX = abs(gX - prevGX);
   float deltaY = abs(gY - prevGY);

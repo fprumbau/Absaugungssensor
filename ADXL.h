@@ -26,7 +26,7 @@ private:
   float gX, gY, gZ;
   float prevGX, prevGY, prevGZ; // Statische Werte jetzt als Klassenvariablen
   bool initialized;
-  bool firstRun = true; // Flag für ersten Durchlauf
+  bool firstRun; // Flag für ersten Durchlauf
 
   void writeRegister(uint8_t registerAddress, uint8_t value);
 };
