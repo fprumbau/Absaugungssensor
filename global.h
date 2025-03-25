@@ -18,7 +18,7 @@
 #include "pins_arduino.h"
 #include <CFG.h>
 
-#define TASTER_PIN 19  // Taster an GPIO 19
+#define TASTER_PIN 26  // Taster an GPIO 19
 #define DEBOUNCE_DELAY 100  // Entprellungszeit in ms
 
 // Debug levels

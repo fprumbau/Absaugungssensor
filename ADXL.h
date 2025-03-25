@@ -8,6 +8,7 @@ public:
   ADXL();
   bool init();
   void print();
+  void sleep(); // Neu: ADXL in Schlafmodus versetzen
   void readAccelerometer();
   bool detectMovement(float threshold);
   float getGX() const { return gX; }

@@ -1,8 +1,6 @@
 #include "CFG.h"
 #include <ArduinoJson.h>
 
-CFG::CFG() : ssid("default_ssid"), pass("default_pass") {}
-
 bool CFG::initializeFS() {
   if (!LittleFS.begin(true)) { // true = format on fail
     Serial.println("LittleFS Mount Failed even with format");
@@ -43,6 +41,7 @@ bool CFG::load() {
   if (doc[SSID_KEY].is<String>() && doc[PASS_KEY].is<String>()) {
     ssid = doc[SSID_KEY].as<String>();
     pass = doc[PASS_KEY].as<String>();
+    idleTime = doc[IDLE_KEY] | 60; // Default: 60s    
     debugPrint(DEBUG_CONFIG, "Config loaded: SSID=" + ssid + ", Pass=" + pass);
   } else {
     Serial.println("Config file invalid, keeping current values");
@@ -67,6 +66,7 @@ bool CFG::save() {
   JsonDocument doc;
   doc[SSID_KEY] = ssid;
   doc[PASS_KEY] = pass;
+  doc[IDLE_KEY] = idleTime; 
 
   String jsonOutput;
   serializeJson(doc, jsonOutput);
@@ -132,6 +132,8 @@ bool CFG::setValue(const String& key, const String& value, bool saveNow) {
     ssid = value;
   } else if (key == PASS_KEY) {
     pass = value;
+  } else if (key == IDLE_KEY) { 
+    idleTime = value.toInt();
   } else {
     JsonDocument doc;
     File file = LittleFS.open(CFG_FILE, "r");

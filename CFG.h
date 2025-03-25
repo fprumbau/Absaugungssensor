@@ -9,13 +9,16 @@ private:
   const char* SSID_KEY = "ssid";
   const char* PASS_KEY = "pass";
   const char* CFG_FILE = "/config.json";
+  const char* IDLE_KEY = "idleTime";
   String ssid;
   String pass;
+  unsigned long idleTime; //in Sekunden
 
   bool initializeFS();
 
 public:
-  CFG();
+  CFG() : ssid("default_ssid"), pass("default_pass"), idleTime(60) {} // Default: 60s
+  unsigned long getIdleTime() const { return idleTime; } 
   bool load();
   bool save();
   const char* getSSID() const;

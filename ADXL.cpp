@@ -82,6 +82,14 @@ bool ADXL::detectMovement(float threshold) {
   return movementDetected;
 }
 
+void ADXL::sleep() {
+  Wire1.beginTransmission(ADXL345_ADDRESS);
+  Wire1.write(0x2D); // Power Control Register
+  Wire1.write(0x00); // Sleep-Modus: Messung aus
+  Wire1.endTransmission();
+  debugPrint(DEBUG_ADXL, "ADXL entered sleep mode");
+}
+
 void ADXL::print() {
     // Daten ausgeben
     Serial.print("Accel X: ");
