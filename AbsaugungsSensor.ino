@@ -193,13 +193,14 @@ void loop() {
             sleepAnnounced = true;
         }
         Serial.println("Going to deep sleep now...");
-        Serial.println("GPIO 26 state before sleep: " + String(digitalRead(TASTER_PIN)));
+        Serial.println("GPIO 0 state before sleep: " + String(digitalRead(TASTER_PIN)));
         adxl.sleep(); // ADXL ausschalten
+
         if (digitalRead(TASTER_PIN) == 0) {
-            Serial.println("Error: GPIO 26 is LOW, cannot enter deep sleep safely");
+            Serial.println("Error: GPIO 0 is LOW, cannot enter deep sleep safely");
             while (1);
         }
-        esp_sleep_enable_ext0_wakeup(GPIO_NUM_26, 0); // Aufwecken bei LOW auf GPIO 26
+        esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, 0); // Aufwecken bei LOW
         esp_deep_sleep_start();
     } else {
         sleepAnnounced = false;
