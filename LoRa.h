@@ -12,8 +12,6 @@
 #define DIO1_LoRa 14
 #define SW_LoRa -1
 
-#define SENSOR_ID 1  // Eindeutige ID für diesen Sensor (1-255)
-
 class LoRa {
 public:
   LoRa();

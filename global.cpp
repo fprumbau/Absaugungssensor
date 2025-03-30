@@ -5,7 +5,7 @@
 //DEBUG_LORA: LoRa-Statusmeldungen (Prüfe auf Pakete)
 //LORA_MSGS: LoRa-Nachrichten
 //DEBUG_ADXL: ADXL-Ausgaben
-uint8_t debugLevel = LORA_MSGS || DEBUG_ADXL;  
+uint16_t debugLevel = LORA_MSGS || DEBUG_ADXL;  
 
 AsyncWebServer server(80);
 
@@ -22,8 +22,12 @@ String lastSentMessage = "";  // Zuletzt gesendete Nachricht
 bool TasterGedrueckt = false;
 unsigned long TasterPressTime = 0;
 const long TasterEntprellZeit = 50;
+const long maxShortPressTime = 1000; // 1000millis sonst long press
 
-void debugPrint(uint8_t level, const String& message) {
+unsigned long lastActivityTime = millis();
+bool sleepAnnounced = false;
+
+void debugPrint(uint16_t level, const String& message) {
   if (debugLevel & level) {
     Serial.println(message);
   }

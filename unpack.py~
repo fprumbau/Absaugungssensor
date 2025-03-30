@@ -1,0 +1,14 @@
+import base64
+import gzip
+
+# Füge die base64-Zeichenfolge hier ein (in Teilen zusammengesetzt)
+base64_string = "..."  # Wird von mir bereitgestellt
+
+# Dekodiere base64 zu Gzip
+gz_data = base64.b64decode(base64_string)
+
+# Entpacke Gzip zu STEP
+with open("AbsaugungsSensor.step", "wb") as f:
+    f.write(gzip.decompress(gz_data))
+
+print("STEP-Datei erstellt!")

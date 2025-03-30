@@ -51,10 +51,10 @@ bool LoRa::receive(uint8_t& sensorId, uint8_t& action) {
 
 const char* LoRa::actionToString(uint8_t action) {
   switch (action) {
-    case 1: return "starte";
-    case 2: return "stoppe";
-    case 3: return "gestartet";
-    case 4: return "gestoppt";
+    case START: return "starte";
+    case STOP: return "stoppe";
+    case STARTED: return "gestartet";
+    case STOPPED: return "gestoppt";
     default: return "unknown";
   }
 }

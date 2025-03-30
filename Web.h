@@ -1,19 +1,19 @@
-#ifndef OTA_H
-#define OTA_H
+#ifndef WEB_H
+#define WEB_H
 
 #include "global.h"
 
-class OTA {
+class Web {
 private:
     bool isUpdating;
 
 public:
-    OTA();
+    Web();
     void setup();
     void loop();
     bool getUpdating();
 };
 
-extern OTA updater;
+extern Web web;
 
 #endif

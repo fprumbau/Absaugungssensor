@@ -6,10 +6,13 @@
 
 class CFG {
 private:
+  const char* CFG_FILE = "/config.json";
+
   const char* SSID_KEY = "ssid";
   const char* PASS_KEY = "pass";
-  const char* CFG_FILE = "/config.json";
   const char* IDLE_KEY = "idleTime";
+  const char* SENSOR_KEY = "sensorId";
+
   String ssid;
   String pass;
   unsigned long idleTime; //in Sekunden
@@ -28,5 +31,6 @@ public:
 };
 
 extern CFG config;
+extern uint8_t SENSOR_ID;
 
 #endif
