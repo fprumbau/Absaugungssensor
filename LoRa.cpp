@@ -9,6 +9,9 @@ bool LoRa::init() {
     return false;
   }
   LT.setupLoRa(FREQUENCY, 0, SPREADING_FACTOR, BANDWIDTH, CODE_RATE, LDRO_AUTO);
+  
+  //LT.setSleep(CONFIGURATION_RETENTION); // Schlafmodus, behält Konfiguration
+
   debugPrint(DEBUG_LORA, "LoRa initialisiert erfolgreich!");
   return true;
 }
@@ -30,10 +33,10 @@ bool LoRa::send(const String& message, uint16_t timeout, int8_t txPower) {
 bool LoRa::send(uint8_t action) {
   uint8_t buffer[2] = {SENSOR_ID, action};
   if (LT.transmit(buffer, 2, 1000, TXpower, WAIT_TX)) {
-    debugPrint(LORA_MSGS, "Sent: sensor" + String(SENSOR_ID) + ": " + String(actionToString(action)));
+    debugPrint(LORA_MSGS, "     Sent: sensor" + String(SENSOR_ID) + ": " + String(actionToString(action)));
     return true;
   } else {
-    debugPrint(LORA_MSGS, "Send failed: sensor" + String(SENSOR_ID) + ": " + String(actionToString(action)));
+    debugPrint(LORA_MSGS, "     Send failed: sensor" + String(SENSOR_ID) + ": " + String(actionToString(action)));
     return false;
   }
 }
@@ -43,7 +46,7 @@ bool LoRa::receive(uint8_t& sensorId, uint8_t& action) {
   if (LT.receive(buffer, 2, 100, WAIT_RX)) {
     sensorId = buffer[0];
     action = buffer[1];
-    debugPrint(LORA_MSGS, "Received: sensor" + String(sensorId) + ": " + String(actionToString(action)));
+    debugPrint(LORA_MSGS, "     Received: sensor" + String(sensorId) + ": " + String(actionToString(action)));
     return true;
   }
   return false;
@@ -51,10 +54,12 @@ bool LoRa::receive(uint8_t& sensorId, uint8_t& action) {
 
 const char* LoRa::actionToString(uint8_t action) {
   switch (action) {
-    case START: return "starte";
-    case STOP: return "stoppe";
+    case STARTE: return "starte";
+    case STOPPE: return "stoppe";
     case STARTED: return "gestartet";
     case STOPPED: return "gestoppt";
+    case ACK: return "ack";
+    case QUERY: return "query";
     default: return "unknown";
   }
 }

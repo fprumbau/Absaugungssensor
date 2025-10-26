@@ -35,6 +35,10 @@ void ADXL::writeRegister(uint8_t registerAddress, uint8_t value) {
   Wire1.endTransmission();
 }
 void ADXL::readAccelerometer() {
+  if (!initialized) {
+    debugPrint(DEBUG_ADXL, "ADXL not initialized");
+    return;
+  }
   uint8_t buffer[6];
   Wire1.beginTransmission(ADXL345_ADDRESS);
   Wire1.write(ADXL345_REG_DATAX0);
@@ -83,6 +87,10 @@ bool ADXL::detectMovement(float threshold) {
 }
 
 void ADXL::sleep() {
+  if (!initialized) {
+    debugPrint(DEBUG_ADXL, "ADXL not initialized");
+    return;
+  }  
   Wire1.beginTransmission(ADXL345_ADDRESS);
   Wire1.write(0x2D); // Power Control Register
   Wire1.write(0x00); // Sleep-Modus: Messung aus

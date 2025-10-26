@@ -19,10 +19,12 @@
 #include "pins_arduino.h"
 #include <CFG.h>
 
-#define START 1
-#define STOP 2
+#define STARTE 1
+#define STOPPE 2
 #define STARTED 3
 #define STOPPED 4
+#define ACK 5
+#define QUERY 6
 
 #define TASTER_PIN 0  // Taster
 #define DEBOUNCE_DELAY 100  // Entprellungszeit in ms
@@ -61,6 +63,7 @@ extern unsigned long lastActivityTime;
 extern bool sleepAnnounced;
 
 extern const long maxShortPressTime;
+extern bool TasterState;
 
 void debugPrint(uint16_t level, const String& message);
 

@@ -12,13 +12,16 @@ class Absaugung {
         bool started();
         bool stopped();
         void loop();
+        const char* status();
         bool awaitsConfirmation();
     private:
+        bool initialized = false;
         bool awaitingConfirmation = false;
         unsigned long lastSendTime = 0;
         bool isStarted = false;
         bool startWaiting = false;
         bool stopWaiting = false;
+        unsigned long startTimeout = 0;
 }; 
 
 extern Absaugung absaugung;

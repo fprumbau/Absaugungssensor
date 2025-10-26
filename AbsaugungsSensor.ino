@@ -1,14 +1,21 @@
 #include "global.h"
 
+/**
+* Board: Heltec LoRa(v3) in der Liste der Esp32-Boards auswaehlen!!!
+*/
+
 void setup() {
-    debugLevel = LORA_MSGS | DEBUG_CONFIG | DEBUG_ADXL | DEBUG_WIFI | DEBUG_ABSG | DEBUG_SWITCH;
+    WiFi.mode(WIFI_OFF);
+    delay(50);
+
+    debugLevel = LORA_MSGS | DEBUG_CONFIG | DEBUG_WIFI | DEBUG_ABSG | DEBUG_SWITCH;
 
     Serial.begin(115200);
     while (!Serial) delay(10);
 
     if (!oled.init()) {
       Serial.println("Display initialization failed!");
-      while (1);
+      while (100);
     }
     oled.clear();
     oled.drawString(0, 0, "AbsaugungsSensor startet...");
@@ -20,22 +27,44 @@ void setup() {
 
     absaugung.init();
 
-    if (!adxl.init()) {
-      debugPrint(DEBUG_ADXL, "ADXL initialization failed!");
-      while (1);
-    }
+    oled.clear();
+    oled.drawString(0, 0, "ADXL startet...");
+    oled.display();
 
+    if (!adxl.init()) {
+        oled.clear();
+        oled.drawString(0, 0, "ADXL initialization failed!");
+        oled.display();
+        debugPrint(DEBUG_ADXL, "ADXL initialization failed!");
+        while (1);
+    }
+    
+    oled.clear();
+    oled.drawString(0, 0, "Config load...");
+    oled.display();
     if (!config.load()) {
       debugPrint(DEBUG_CONFIG, "Config load failed, setting and saving new values");
       config.setValue("ssid", "P...y", true);
       config.setValue("pass", "5...7", true);
     }
+    
+    oled.clear();
+    oled.drawString(0, 0, "Web setup...");
+    oled.display();
 
     web.setup();
+
 }
 
 void loop() {
 
+    //return;
+
+    //Restart erforderlich, wird durch updater-Objekt nach Upload einer neuen Firmware geregelt
+    if(web.restartRequired) {
+      delay(2000);
+      ESP.restart();
+    }
     if (web.getUpdating()) {
         web.loop();
         oled.clear();
@@ -45,7 +74,7 @@ void loop() {
         return;
     }
 
-    bool TasterState = digitalRead(TASTER_PIN) == LOW;
+    TasterState = digitalRead(TASTER_PIN) == LOW;
 
     // Tasterlogik mit Entprellung
     if (TasterState && !TasterGedrueckt) {
@@ -54,28 +83,31 @@ void loop() {
             TasterGedrueckt = true;
             TasterPressTime = currentTime;
             lastActivityTime = currentTime;
+            //Status abfragen
+            debugPrint(LORA_MSGS, "\nQuery current state for this sensor " + String(SENSOR_ID));
+            lora.send(QUERY);
         }
     } else if (TasterState && TasterGedrueckt) {
         unsigned long pressDuration = millis() - TasterPressTime;
         if (pressDuration > WifiActivationTime && !wifi.isActive()) {
-            debugPrint(DEBUG_WIFI, "Starting WiFi with SSID=" + String(config.getSSID()) + ", Pass=" + String(config.getPass()));
+            debugPrint(DEBUG_ABSG, "Starting WiFi with SSID=" + String(config.getSSID()) + ", Pass=" + String(config.getPass()));
             wifi.begin(config.getSSID(), config.getPass());
             oled.clear();
-            oled.drawString(0, 0, "WiFi-Modus aktiviert");
+            oled.drawString(0, 0, "WiFi-Modus aktiv: " + WiFi.localIP().toString());
             oled.display();
             lastActivityTime = millis();
         } 
-    } else if (!TasterState && TasterGedrueckt) {
+    } else if (!TasterState && TasterGedrueckt) { //Schalter wurde gerade wieder geloest
         unsigned long pressDuration = millis() - TasterPressTime;
         TasterGedrueckt = false;
         debugPrint(DEBUG_DISPLAY, "Taster losgelassen");
         lastActivityTime = millis();
         if(pressDuration > maxShortPressTime) {
-            debugPrint(DEBUG_SWITCH, "Schalte Absaugung um");
+            debugPrint(DEBUG_SWITCH, "\nSchalte Absaugung um");
             absaugung.toggle();
-        } else {
+        }/* else {
             debugPrint(DEBUG_SWITCH, "Schalter wurde <maxShortPressTime betaetigt, ignoriere...");
-        }
+        }*/
     } 
 
     wifi.loop();
@@ -84,7 +116,7 @@ void loop() {
     adxl.readAccelerometer();
     bool vibrationDetected = adxl.detectMovement(0.2);
 
-    if (vibrationDetected 
+    /*if (vibrationDetected 
                   && absaugung.stopped() 
                   && !absaugung.awaitsConfirmation()) {
         if (absaugung.start()) {
@@ -102,7 +134,7 @@ void loop() {
         } else {
             debugPrint(LORA_MSGS, "Vibration stopped, stop send failed");
         }
-    }
+    }*/
 
     /*
     //Bestaetigung noch nicht erfolgt
@@ -153,18 +185,9 @@ void loop() {
         sleepAnnounced = false;
     }
 
-    oled.clear();
-    oled.drawString(0, 0, "AbsaugungsSensor");
-    oled.drawString(0, 13, "Taster: " + String(TasterState ? "gedrückt" : "los"));
-    oled.drawString(0, 26, "WiFi: " + String(wifi.isActive() ? "aktiv" : "inaktiv"));
-    oled.drawString(0, 34, "X: " + String(adxl.getGX(), 2) + " g");
-    oled.drawString(0, 42, "Y: " + String(adxl.getGY(), 2) + " g");
-    oled.drawString(0, 50, "Z: " + String(adxl.getGZ(), 2) + " g");
-    oled.display();
-
-    static bool lastTasterState = false;
+    /*static bool lastTasterState = false;
     if (TasterState != lastTasterState || vibrationDetected) {
-        String message = "Taster: " + String(TasterState ? "gedrückt" : "los") +
+        String message = "Taster: " + String(TasterState ? "on" : "off") +
                          ", X: " + String(adxl.getGX(), 2) + " g" +
                          ", Y: " + String(adxl.getGY(), 2) + " g" +
                          ", Z: " + String(adxl.getGZ(), 2) + " g";
@@ -172,7 +195,9 @@ void loop() {
         debugPrint(DEBUG_ADXL, message);
         lastTasterState = TasterState;
         lastActivityTime = millis(); // Aktivität zurücksetzen
-    }
+    }*/
 
-    delay(100);
+    oled.updateScreen();
+
+    //delay(100);
 }

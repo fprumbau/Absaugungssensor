@@ -8,6 +8,8 @@ private:
     bool isUpdating;
 
 public:
+    String version;
+    bool restartRequired = false; 
     Web();
     void setup();
     void loop();

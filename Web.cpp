@@ -5,6 +5,7 @@
 Web::Web() : isUpdating(false) {}
 
 void Web::setup() {
+    version = "0.8";
     server.on("/ota", HTTP_GET, [this](AsyncWebServerRequest *request){
         wifi.resetTimeout();
         String html = "<html><body><h1>OTA Update</h1>";
@@ -13,10 +14,14 @@ void Web::setup() {
         html += "<input type='submit' value='Update'></form>";
         html += "<h2>Changelog</h2>";
         html += "<ul>";
-        html += "<li>2025-03-25: Initial version with OTA support</li>";
-        html += "<li>2025-03-26: Added WiFi activation</li>";
-        html += "<li>2025-03-29: Absaugung als Kommunikationsobjekt</li>";    
-        html += "<li>2025-03-30: SensorID in Konfig</li>";              
+        html += "<li><b>0.1</b> 2025-03-25: Initial version with OTA support</li>";
+        html += "<li><b>0.2</b> 2025-03-26: Added WiFi activation</li>";
+        html += "<li><b>0.3</b> 2025-03-29: Absaugung als Kommunikationsobjekt</li>";    
+        html += "<li><b>0.4</b> 2025-03-30: SensorID in Konfig</li>";   
+        html += "<li><b>0.5</b> 2025-10-25: Das Display rotiert, wenn man das Ger&auml;t dreht</li>";  
+        html += "<li><b>0.6</b> 2025-10-26: Nach einem OTA muss ein Restart gemacht werden.</li>";    
+        html += "<li><b>0.7</b> 2025-10-26: Off/On-Anzeige der Absaugung im Display.</li>";   
+        html += "<li><b>0.8</b> 2025-10-26: Implementierung ACK, Anzeige Restidlezeit.</li>";             
         html += "</ul>";
         html += "<a href='/'>Back</a></body></html>";
         request->send(200, "text/html", html);
@@ -41,11 +46,12 @@ void Web::setup() {
             Update.write(data, len);
         }
         if (final) {
-            if (Update.end(true)) {
+            if (Update.end(true)) { 
                 Serial.println("Update Success");
             } else {
                 Serial.println("Update Failed");
             }
+            web.restartRequired = true;  // Tell the main loop to restart the ESP
         }
     });
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){

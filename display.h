@@ -16,10 +16,14 @@ public:
   void clear();             // Löscht das Display
   void drawString(int x, int y, const String& text); // Zeichnet Text
   void display();           // Aktualisiert das Display
+  void updateScreen();      // Schreibt eine normale Seite
 
 private:
+  bool flipped;             // steht Display auf Kopf?
   SSD1306Wire oled;         // Internes SSD1306Wire-Objekt
   static constexpr int VEXT_PIN = 36; // Heltec-spezifischer Vext-Pin (angepasst)
+  void sendSSD1306Command(uint8_t command); //send Kommando direkt an Display
+  void setDisplayOrientation(bool flipVertical); //drehe Display absolut (kein Toggle)
 };
 
 extern Display oled; // Globales Display-Objekt

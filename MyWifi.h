@@ -14,6 +14,8 @@ public:
   void disconnect();
   bool isActive() const;
   void resetTimeout();
+  String localIP();
+
 
 private:
   String ssid;
@@ -22,6 +24,7 @@ private:
   unsigned long startTime;
   AsyncWebServer& server; // Referenz auf den Webserver
   static constexpr unsigned long TIMEOUT_MS = 120000; // 120 Sekunden
+
 };
 
 extern MyWifi wifi;

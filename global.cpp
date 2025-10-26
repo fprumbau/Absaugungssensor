@@ -26,6 +26,7 @@ const long maxShortPressTime = 1000; // 1000millis sonst long press
 
 unsigned long lastActivityTime = millis();
 bool sleepAnnounced = false;
+bool TasterState;
 
 void debugPrint(uint16_t level, const String& message) {
   if (debugLevel & level) {
