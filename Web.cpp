@@ -5,7 +5,7 @@
 Web::Web() : isUpdating(false) {}
 
 void Web::setup() {
-    version = "0.8";
+    version = "0.10";
     server.on("/ota", HTTP_GET, [this](AsyncWebServerRequest *request){
         wifi.resetTimeout();
         String html = "<html><body><h1>OTA Update</h1>";
@@ -21,7 +21,10 @@ void Web::setup() {
         html += "<li><b>0.5</b> 2025-10-25: Das Display rotiert, wenn man das Ger&auml;t dreht</li>";  
         html += "<li><b>0.6</b> 2025-10-26: Nach einem OTA muss ein Restart gemacht werden.</li>";    
         html += "<li><b>0.7</b> 2025-10-26: Off/On-Anzeige der Absaugung im Display.</li>";   
-        html += "<li><b>0.8</b> 2025-10-26: Implementierung ACK, Anzeige Restidlezeit.</li>";             
+        html += "<li><b>0.8</b> 2025-10-26: Implementierung ACK, Anzeige Restidlezeit.</li>"; 
+        html += "<li><b>0.9</b> 2025-11-02: Hysterese von 20 bei Displayflip.</li>";         
+        html += "<li>                   Absaugungstoggle bei Klick<1s.</li>";      
+        html += "<li><b>0.10</b> 2025-11-03: ADXL lernt.</li>";  
         html += "</ul>";
         html += "<a href='/'>Back</a></body></html>";
         request->send(200, "text/html", html);

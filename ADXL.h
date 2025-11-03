@@ -18,10 +18,6 @@ public:
 
 private:
   static constexpr uint8_t ADXL345_ADDRESS = 0x53;
-  static constexpr uint8_t ADXL345_REG_DEVID = 0x00;
-  static constexpr uint8_t ADXL345_REG_POWER_CTL = 0x2D;
-  static constexpr uint8_t ADXL345_REG_DATA_FORMAT = 0x31;
-  static constexpr uint8_t ADXL345_REG_DATAX0 = 0x32;
 
   int16_t accelX, accelY, accelZ;
   float gX, gY, gZ;

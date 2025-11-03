@@ -31,7 +31,8 @@ void setup() {
     oled.drawString(0, 0, "ADXL startet...");
     oled.display();
 
-    if (!adxl.init()) {
+    //if (!adxl.init()) {
+    if(!vibrationSensor.begin()) {    
         oled.clear();
         oled.drawString(0, 0, "ADXL initialization failed!");
         oled.display();
@@ -102,7 +103,7 @@ void loop() {
         TasterGedrueckt = false;
         debugPrint(DEBUG_DISPLAY, "Taster losgelassen");
         lastActivityTime = millis();
-        if(pressDuration > maxShortPressTime) {
+        if(pressDuration < maxShortPressTime) {
             debugPrint(DEBUG_SWITCH, "\nSchalte Absaugung um");
             absaugung.toggle();
         }/* else {
@@ -113,8 +114,8 @@ void loop() {
     wifi.loop();
     absaugung.loop();
 
-    adxl.readAccelerometer();
-    bool vibrationDetected = adxl.detectMovement(0.2);
+    //adxl.readAccelerometer();
+    //bool vibrationDetected = adxl.detectMovement(0.2);
 
     /*if (vibrationDetected 
                   && absaugung.stopped() 
@@ -173,7 +174,7 @@ void loop() {
         }
         Serial.println("Going to deep sleep now...");
         Serial.println("GPIO 0 state before sleep: " + String(digitalRead(TASTER_PIN)));
-        adxl.sleep(); // ADXL ausschalten
+        //adxl.sleep(); // ADXL ausschalten
 
         if (digitalRead(TASTER_PIN) == 0) {
             Serial.println("Error: GPIO 0 is LOW, cannot enter deep sleep safely");

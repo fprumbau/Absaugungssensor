@@ -71,12 +71,13 @@ void Display::setDisplayOrientation(bool flipVertical) {
 
 void Display::updateScreen() {
     oled.clear();
-    if(adxl.getGX()>0) {
+    float val = adxl.getGX();
+    if(val>0.05) {
       if(flipped) {
         flipped=false;
         setDisplayOrientation(true);
       } 
-    } else {
+    } else if (val<-0.05) {
       if(!flipped) {
         flipped=true;
         setDisplayOrientation(false);

@@ -1,20 +1,23 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-#include <Arduino.h>
-#include <ArduinoJson.h>
-#include <LittleFS.h>
-#include <ESPAsyncWebServer.h>
-
-#include "SX126XLT.h"
 #include <SPI.h>
+#include <math.h>
 #include <Wire.h>
+#include <EEPROM.h>
+#include <SX126XLT.h>
+#include <LittleFS.h>
+#include <ArduinoJson.h>
+#include <ESPAsyncWebServer.h>
+#include <Adafruit_ADXL345_U.h>
+
 #include "ADXL.h"
 #include "LoRa.h"
 #include "MyWifi.h"
 #include "Web.h"
 #include "display.h"
 #include "Absaugung.h"
+#include "VibrationsSensor.h"
 #include "SSD1306Wire.h"
 #include "pins_arduino.h"
 #include <CFG.h>
