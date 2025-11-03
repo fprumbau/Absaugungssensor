@@ -8,7 +8,7 @@ void setup() {
     WiFi.mode(WIFI_OFF);
     delay(50);
 
-    debugLevel = LORA_MSGS | DEBUG_CONFIG | DEBUG_WIFI | DEBUG_ABSG | DEBUG_SWITCH;
+    debugLevel = DEBUG_ADXL;
 
     Serial.begin(115200);
     while (!Serial) delay(10);

@@ -23,6 +23,7 @@ public:
 
 private:
   Adafruit_ADXL345_Unified accel;
+  TwoWire* _wire;     // Pointer auf unseren custom Wire-Bus
   float analyzeFrequency(float samples[], int count, int sampleRate);
   float calculateRMS(float samples[], int count);
   void collectSamples(float samples[], int &count, int durationMs);

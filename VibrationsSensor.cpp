@@ -4,15 +4,25 @@
 #define FFT_N 128          // FFT Länge
 #define PROFILE_ADDR 0
 
-VibrationSensor::VibrationSensor() : accel(12345), profile{0, 0, 0, false} {}
+VibrationSensor::VibrationSensor() : _wire(&Wire1), profile{0,0,0,false} {
+  // WICHTIG: Custom I2C-Bus VOR Konstruktor des accel!
+}
 
 bool VibrationSensor::begin() {
-  if (!accel.begin()) {
-    Serial.println("ADXL345 nicht gefunden!");
+  // === Heltec V3.2 spezifisch: GPIO47=SDA, GPIO48=SCL ===
+  _wire->begin(47, 48);  // Jetzt global verfügbar!
+  _wire->setClock(400000);
+
+  // Adafruit_Unified v2.0.4+ Kompatibilität:
+  if (!accel.begin(0x53)) {  // Nur Adresse!
+    Serial.printf("ADXL345 nicht gefunden auf I2C(47,48)! Fehlercode: %d\n", accel.getDeviceID());
     return false;
   }
+
   accel.setRange(ADXL345_RANGE_16_G);
   accel.setDataRate(ADXL345_DATARATE_100_HZ);
+  
+  debugPrint(DEBUG_ADXL, "✅ ADXL345 bereit (100Hz, ±16g)");
   loadProfile();
   return true;
 }
@@ -72,7 +82,7 @@ float VibrationSensor::analyzeFrequency(float samples[], int count, int sampleRa
 }
 
 void VibrationSensor::learn() {
-  Serial.println("LERNMODUS: Werkzeug 10s lang betreiben...");
+  debugPrint(DEBUG_ADXL, "LERNMODUS: Werkzeug 10s lang betreiben...");
   float allSamples[FFT_N * 10];
   int totalCount = 0;
   float freqs[10] = {0};
@@ -96,7 +106,7 @@ void VibrationSensor::learn() {
     } else {
       Serial.printf("Segment %d: Stille\n", seg + 1);
       if (validSegments > 2) {
-        Serial.println("Genug Daten → Lernen beendet.");
+        debugPrint(DEBUG_ADXL, "Genug Daten → Lernen beendet.");
         break;
       }
     }
@@ -104,7 +114,7 @@ void VibrationSensor::learn() {
   }
 
   if (validSegments < 2) {
-    Serial.println("Kein klares Profil erkannt!");
+    debugPrint(DEBUG_ADXL, "Kein klares Profil erkannt!");
     profile.valid = false;
     return;
   }
@@ -128,7 +138,7 @@ void VibrationSensor::learn() {
   saveProfile();
   printProfile();
 
-  Serial.println("PROFIL GESPEICHERT!");
+  debugPrint(DEBUG_ADXL, "PROFIL GESPEICHERT!");
 }
 
 bool VibrationSensor::movementDetected() {
