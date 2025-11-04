@@ -31,8 +31,8 @@ void setup() {
     oled.drawString(0, 0, "ADXL startet...");
     oled.display();
 
-    //if (!adxl.init()) {
-    if(!vibrationSensor.begin()) {    
+    bool adxlInit = adxl.init();
+    if (!adxlInit) {   
         oled.clear();
         oled.drawString(0, 0, "ADXL initialization failed!");
         oled.display();
@@ -114,41 +114,6 @@ void loop() {
     wifi.loop();
     absaugung.loop();
 
-    //adxl.readAccelerometer();
-    //bool vibrationDetected = adxl.detectMovement(0.2);
-
-    /*if (vibrationDetected 
-                  && absaugung.stopped() 
-                  && !absaugung.awaitsConfirmation()) {
-        if (absaugung.start()) {
-            debugPrint(LORA_MSGS, "Vibration detected, start sent");
-            lastActivityTime = millis(); // Aktivität zurücksetzen
-        } else {
-            debugPrint(LORA_MSGS, "Vibration detected, start send failed");
-        }
-    } else if (!vibrationDetected 
-                  && absaugung.started() 
-                  && !absaugung.awaitsConfirmation()) {
-        if (absaugung.stop()) {;
-            debugPrint(LORA_MSGS, "Vibration stopped, stop sent");
-            lastActivityTime = millis(); // Aktivität zurücksetzen
-        } else {
-            debugPrint(LORA_MSGS, "Vibration stopped, stop send failed");
-        }
-    }*/
-
-    /*
-    //Bestaetigung noch nicht erfolgt
-    if (awaitingConfirmation && (millis() - lastSendTime >= 3000)) {
-        if (lora.send(lastAction)) {
-            lastSendTime = millis();
-            debugPrint(LORA_MSGS, "Retry sent: sensor" + String(SENSOR_ID) + ": " + String(lora.actionToString(lastAction)));
-            lastActivityTime = millis(); // Aktivität zurücksetzen
-        } else {
-            debugPrint(LORA_MSGS, "Retry failed: sensor" + String(SENSOR_ID) + ": " + String(lora.actionToString(lastAction)));
-        }
-    }*/
-
     // Tiefschlaf-Logik
     if (absaugung.stopped() && !wifi.isActive() && (millis() - lastActivityTime >= config.getIdleTime() * 1000)) {
         if (!sleepAnnounced) {
@@ -174,7 +139,7 @@ void loop() {
         }
         Serial.println("Going to deep sleep now...");
         Serial.println("GPIO 0 state before sleep: " + String(digitalRead(TASTER_PIN)));
-        //adxl.sleep(); // ADXL ausschalten
+        adxl.sleep(); // ADXL ausschalten
 
         if (digitalRead(TASTER_PIN) == 0) {
             Serial.println("Error: GPIO 0 is LOW, cannot enter deep sleep safely");
@@ -186,19 +151,5 @@ void loop() {
         sleepAnnounced = false;
     }
 
-    /*static bool lastTasterState = false;
-    if (TasterState != lastTasterState || vibrationDetected) {
-        String message = "Taster: " + String(TasterState ? "on" : "off") +
-                         ", X: " + String(adxl.getGX(), 2) + " g" +
-                         ", Y: " + String(adxl.getGY(), 2) + " g" +
-                         ", Z: " + String(adxl.getGZ(), 2) + " g";
-        //lora.send(message, 1000, 10);
-        debugPrint(DEBUG_ADXL, message);
-        lastTasterState = TasterState;
-        lastActivityTime = millis(); // Aktivität zurücksetzen
-    }*/
-
     oled.updateScreen();
-
-    //delay(100);
 }

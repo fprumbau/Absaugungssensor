@@ -71,7 +71,7 @@ void Display::setDisplayOrientation(bool flipVertical) {
 
 void Display::updateScreen() {
     oled.clear();
-    float val = adxl.getGX();
+    float val = adxl.getX();
     if(val>0.05) {
       if(flipped) {
         flipped=false;
@@ -92,15 +92,34 @@ void Display::updateScreen() {
       oled.drawString(0, 0, "Absaug.Sensor       ---"); 
     }
     oled.drawString(0, 11, "Taster: " + String(TasterState ? "on" : "off"));
-    oled.drawString(0, 22, "WiFi: " + String(wifi.isActive() ? wifi.localIP() : "off"));
-    oled.drawString(0, 34, "X: " + String(adxl.getGX(), 2) + " g");
+    oled.drawString(0, 22, String(wifi.isActive() ? wifi.localIP() : "WiFi: off"));
 
     oled.drawRect(91, 22, 29, 16); 
     oled.drawRect(90, 81, 31, 18);
     oled.drawString(95, 24, absaugung.status());
 
-    oled.drawString(0, 42, "Y: " + String(adxl.getGY(), 2) + " g");
-    oled.drawString(0, 50, "Z: " + String(adxl.getGZ(), 2) + " g");
+    float x, y, z;
+    adxl.readAccelerometer(x, y, z);
+    
+    if(x<0) {
+      x = x * -1;
+      oled.drawString(0, 34, "X: -" + String(x, 1) + " g");
+    } else {
+      oled.drawString(0, 34, "X:  " + String(x, 1) + " g");
+    } 
+    if(y<0) {
+      y = y * -1;
+      oled.drawString(0, 42, "Y: -" + String(y, 1) + " g");
+    } else {
+      oled.drawString(0, 42, "Y:  " + String(y, 1) + " g");
+    }     
+    if(z<0) {
+      z = z * -1;
+      oled.drawString(0, 50, "Z: -" + String(z, 1) + " g");
+    } else {
+      oled.drawString(0, 50, "Z:  " + String(z, 1) + " g");
+    } 
+
     oled.drawString(90, 50, "v.: " + web.version);
     oled.display();
 }

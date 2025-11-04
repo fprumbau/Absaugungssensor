@@ -17,7 +17,6 @@
 #include "Web.h"
 #include "display.h"
 #include "Absaugung.h"
-#include "VibrationsSensor.h"
 #include "SSD1306Wire.h"
 #include "pins_arduino.h"
 #include <CFG.h>

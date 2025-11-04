@@ -1,16 +1,40 @@
-#include "ADXL.h"
+#include "VibrationsSensor.h"
+#include <Adafruit_BusIO_Register.h>  // Für den Hack
 
 #define ADDR 0x53
 #define SAMPLES 128
 #define RATE 100
 
-ADXL::ADXL() : initialized(false) {}
+VibrationSensor::VibrationSensor() : wire1(TwoWire(1)), profile{0,0,0,false} {
+  //EEPROM.begin(512);
+}
 
-bool ADXL::init() {
-  Wire1.begin(48, 47);
-  Wire1.beginTransmission(ADDR);
-  Wire1.write(ADXL345_REG_DEVID);
-  Wire1.endTransmission();
+bool VibrationSensor::begin() {
+  /*wire1.begin(48, 47);
+  wire1.setClock(400000);
+
+  // Device ID prüfen
+  wire1.beginTransmission(ADDR);
+  wire1.write(0x00);
+  if (wire1.endTransmission() != 0) return false;
+  wire1.requestFrom(ADDR, 1);
+  if (wire1.read() != 0xE5) return false;
+
+  // ADXL aktivieren
+  wire1.beginTransmission(ADDR);
+  wire1.write(0x2D); 
+  wire1.write(0x08);
+  wire1.endTransmission();
+  wire1.beginTransmission(ADDR);
+  wire1.write(0x31); 
+  wire1.write(0x0B);
+  wire1.endTransmission();
+  */
+
+  wire1.begin(48, 47);
+  wire1.beginTransmission(ADDR);
+  wire1.write(ADXL345_REG_DEVID);
+  wire1.endTransmission();
   if (Wire1.requestFrom(ADDR, 1) == 1) {
     byte deviceID = Wire1.read();
     if (debugLevel & 8) {
@@ -18,42 +42,36 @@ bool ADXL::init() {
       Serial.println(deviceID, HEX);
     }
     if (deviceID == 0xE5) {
-      writeRegister(ADXL345_REG_POWER_CTL, 0x08);
-      writeRegister(ADXL345_REG_DATA_FORMAT, 0x00);
-      initialized = true;
-    } else {
-      Serial.println("ADXL345 not detected!");
-    }
+        wire1.beginTransmission(ADDR);
+        wire1.write(ADXL345_REG_POWER_CTL);
+        wire1.write(0x08);
+        wire1.endTransmission();
+        wire1.beginTransmission(ADDR);
+        wire1.write(ADXL345_REG_DATA_FORMAT);
+        wire1.write(0x00);
+        wire1.endTransmission();
+    } 
   } else {
     Serial.println("I2C Error during init!");
   }
-  return initialized;
+
+  Serial.println("ADXL345 bereit (Wire1)");
+  loadProfile();
+  return true;
 }
 
-void ADXL::writeRegister(uint8_t registerAddress, uint8_t value) {
-  Wire1.beginTransmission(ADDR);
-  Wire1.write(registerAddress);
-  Wire1.write(value);
-  Wire1.endTransmission();
+bool VibrationSensor::readRaw(int16_t &x, int16_t &y, int16_t &z) {
+  wire1.beginTransmission(ADDR);
+  wire1.write(0x32);
+  wire1.endTransmission();
+  if (wire1.requestFrom(ADDR, 6) != 6) return false;
+  x = wire1.read() | (wire1.read() << 8);
+  y = wire1.read() | (wire1.read() << 8);
+  z = wire1.read() | (wire1.read() << 8);
+  return true;
 }
 
-void ADXL::sleep() {
-  if (!initialized) {
-    debugPrint(DEBUG_ADXL, "ADXL not initialized");
-    return;
-  }  
-  Wire1.beginTransmission(ADDR);
-  Wire1.write(0x2D); // Power Control Register
-  Wire1.write(0x00); // Sleep-Modus: Messung aus
-  Wire1.endTransmission();
-  debugPrint(DEBUG_ADXL, "ADXL entered sleep mode");
-}
-
-void ADXL::readAccelerometer(float &x, float &y, float &z) {
-  if (!initialized) {
-    debugPrint(DEBUG_ADXL, "ADXL not initialized");
-    return;
-  }
+void VibrationSensor::readAccelerometer(float &x, float &y, float &z) {
   uint8_t buffer[6];
   Wire1.beginTransmission(ADDR);
   Wire1.write(ADXL345_REG_DATAX0);
@@ -65,7 +83,7 @@ void ADXL::readAccelerometer(float &x, float &y, float &z) {
     int16_t accelX = (int16_t)((buffer[1] << 8) | buffer[0]);
     int16_t accelY = (int16_t)((buffer[3] << 8) | buffer[2]);
     int16_t accelZ = (int16_t)((buffer[5] << 8) | buffer[4]);
-    this->x = x = accelX * 0.0039;
+    x = accelX * 0.0039;
     y = accelY * 0.0039;
     z = accelZ * 0.0039;
   } else {
@@ -73,18 +91,7 @@ void ADXL::readAccelerometer(float &x, float &y, float &z) {
   }
 }
 
-bool ADXL::readRaw(int16_t &x, int16_t &y, int16_t &z) {
-  Wire1.beginTransmission(ADDR);
-  Wire1.write(0x32);
-  Wire1.endTransmission();
-  if (Wire1.requestFrom(ADDR, 6) != 6) return false;
-  x = Wire1.read() | (Wire1.read() << 8);
-  y = Wire1.read() | (Wire1.read() << 8);
-  z = Wire1.read() | (Wire1.read() << 8);
-  return true;
-}
-
-void ADXL::collect(float samples[], int &count, int ms) {
+void VibrationSensor::collect(float samples[], int &count, int ms) {
   count = 0;
   unsigned long end = millis() + ms;
   int16_t x, y, z;
@@ -96,14 +103,14 @@ void ADXL::collect(float samples[], int &count, int ms) {
   }
 }
 
-float ADXL::rms(float samples[], int n) {
+float VibrationSensor::rms(float samples[], int n) {
   if (n == 0) return 0;
   float sum = 0;
   for (int i = 0; i < n; i++) sum += samples[i] * samples[i];
   return sqrt(sum / n) * 1000;
 }
 
-float ADXL::findFrequency(float samples[], int n) {
+float VibrationSensor::findFrequency(float samples[], int n) {
   if (n < 20) return 0;
   float maxCorr = 0;
   int bestLag = 0;
@@ -117,7 +124,7 @@ float ADXL::findFrequency(float samples[], int n) {
   return bestLag ? (float)RATE / bestLag : 0;
 }
 
-void ADXL::learn() {
+void VibrationSensor::learn() {
   Serial.println("LERNE 10s – Werkzeug starten!");
   float freqs[10] = {0}, amps[10] = {0};
   int valid = 0;
@@ -155,7 +162,7 @@ void ADXL::learn() {
   printProfile();
 }
 
-bool ADXL::movementDetected() {
+bool VibrationSensor::movementDetected() {
   if (!profile.valid) return false;
 
   float buf[SAMPLES];
@@ -172,17 +179,17 @@ bool ADXL::movementDetected() {
   return match;
 }
 
-void ADXL::saveProfile() {
-  //EEPROM.put(0, profile);
-  //EEPROM.commit();
+void VibrationSensor::saveProfile() {
+  EEPROM.put(0, profile);
+  EEPROM.commit();
 }
 
-void ADXL::loadProfile() {
-  //EEPROM.get(0, profile);
-  //if (profile.freq < 10 || profile.freq > 200) profile.valid = false;
+void VibrationSensor::loadProfile() {
+  EEPROM.get(0, profile);
+  if (profile.freq < 10 || profile.freq > 200) profile.valid = false;
 }
 
-void ADXL::printProfile() {
+void VibrationSensor::printProfile() {
   DynamicJsonDocument doc(200);
   doc["tool"] = "Schleifer";
   doc["freq"] = round(profile.freq * 10)/10;
@@ -192,8 +199,4 @@ void ADXL::printProfile() {
   Serial.println();
 }
 
-float ADXL::getX() {
-    return x;
-}
-
-ADXL adxl; //Definition
+VibrationSensor vibrationSensor;

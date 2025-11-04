@@ -1,41 +1,35 @@
-#include <sys/_stdint.h>
-#ifndef ADXL_H
-#define ADXL_H
+#ifndef VIBRATIONS_SENSOR_H
+#define VIBRATIONS_SENSOR_H
 
 #include "global.h"
 
-struct VibrationProfile {
+struct VibrationProfilex {
   float freq;     // Hz
   float amp;     // in mg
   float var;      // Frequenzschwankung in %
-  bool valid;la
+  bool valid;
 };
 
-class ADXL {
+class VibrationSensor {
 public:
-  ADXL();
-  bool init();
-  void sleep(); // Neu: ADXL in Schlafmodus versetzen
-  bool isInitialized() const { return initialized; }
-  float getX();
+  VibrationSensor();
+  bool begin();
   void learn();                    // 10s Lernen → JSON
   bool movementDetected();         // FFT + Profil-Match
   void loadProfile();
   void saveProfile();
   void printProfile();
   void readAccelerometer(float &x, float &y, float &z);
-  VibrationProfile profile;
+  VibrationProfilex profile;
 
 private:
-  float x;             
-  bool initialized;
-  void writeRegister(uint8_t registerAddress, uint8_t value);
+  TwoWire wire1;
   bool readRaw(int16_t &x, int16_t &y, int16_t &z);
   float findFrequency(float samples[], int n);
   float rms(float samples[], int n);
   void collect(float samples[], int &count, int ms);
 };
 
-extern ADXL adxl;
+extern VibrationSensor vibrationSensor;
 
 #endif
