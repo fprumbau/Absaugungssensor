@@ -2,7 +2,7 @@
 
 #define ADDR 0x53
 #define SAMPLES 128
-#define RATE 100
+#define RATE 50 // 20ms pro Sample → 50 Hz → STABIL!
 
 ADXL::ADXL() : initialized(false) {}
 
@@ -92,7 +92,9 @@ void ADXL::collect(float samples[], int &count, int ms) {
     if (readRaw(x, y, z)) {
       samples[count++] = (z * 0.0039) - 1.0; //9.81;  // nur Z, Grav abziehen
     }
-    delay(1000 / RATE);
+    // KEIN delay(1000/RATE) mehr!
+    // I2C ist langsam genug!
+    //delay(1000 / RATE);
   }
 }
 
