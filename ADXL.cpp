@@ -90,7 +90,7 @@ void ADXL::collect(float samples[], int &count, int ms) {
   int16_t x, y, z;
   while (millis() < end && count < SAMPLES) {
     if (readRaw(x, y, z)) {
-      samples[count++] = (z * 0.0039) - 9.81;  // nur Z, Grav abziehen
+      samples[count++] = (z * 0.0039) - 1.0; //9.81;  // nur Z, Grav abziehen
     }
     delay(1000 / RATE);
   }
@@ -117,79 +117,233 @@ float ADXL::findFrequency(float samples[], int n) {
   return bestLag ? (float)RATE / bestLag : 0;
 }
 
-void ADXL::learn() {
-  Serial.println("LERNE 10s – Werkzeug starten!");
-  float freqs[10] = {0}, amps[10] = {0};
-  int valid = 0;
+bool ADXL::learn(const char* toolName)
+{
+    const uint16_t SAMPLE_TIME_MS = 1000;
+    const uint16_t SAMPLE_RATE_HZ = 500;
+    const uint16_t N = SAMPLE_RATE_HZ;
 
-  for (int i = 0; i < 10; i++) {
-    float buf[SAMPLES];
-    int cnt;
-    collect(buf, cnt, 1000);
-
-    float f = findFrequency(buf, cnt);
-    float a = rms(buf, cnt);
-
-    if (a > 80 && f > 20) {
-      freqs[valid] = f;
-      amps[valid++] = a;
-      Serial.printf("Segment %d: %.1f Hz, %.0f mg\n", i+1, f, a);
-    } else {
-      Serial.println("Stille → Lernen beendet.");
-      break;
+    int16_t raw[N];
+    if (!readSamples(raw, N, 1000000 / SAMPLE_RATE_HZ)) {
+        Serial.println(F("Fehler beim Aufnehmen"));
+        return false;
     }
-    delay(200);
-  }
 
-  if (valid < 2) { Serial.println("Kein Profil!"); profile.valid = false; return; }
+    // 1. FFT für Grundfrequenz
+    float freq = detectDominantFrequency(raw, N, SAMPLE_RATE_HZ);
+    
+    // 2. Amplitude (RMS)
+    float rms = 0;
+    for (int i = 0; i < N; i++) rms += raw[i] * raw[i];
+    rms = sqrt(rms / N);
+    uint16_t amplitude = (uint16_t)(rms * 100);
 
-  float sumF = 0, sumA = 0, var = 0;
-  for (int i = 0; i < valid; i++) { sumF += freqs[i]; sumA += amps[i]; }
-  profile.freq = sumF / valid;
-  profile.amp = sumA / valid;
-  for (int i = 0; i < valid; i++) var += sq(freqs[i] - profile.freq);
-  profile.var = valid > 1 ? sqrt(var/(valid-1)) / profile.freq * 100 : 10;
-  profile.valid = true;
+    // 3. Varianz über 4 × 250ms-Blöcke
+    uint16_t freqs[4] = {0};
+    uint16_t amps[4]  = {0};
+    for (int b = 0; b < 4; b++) {
+        int start = b * (N/4);
+        freqs[b] = (uint16_t)detectDominantFrequency(&raw[start], N/4, SAMPLE_RATE_HZ);
+        float blockRms = 0;
+        for (int i = 0; i < N/4; i++) blockRms += raw[start+i] * raw[start+i];
+        blockRms = sqrt(blockRms / (N/4));
+        amps[b] = (uint16_t)(blockRms * 100);
+    }
 
-  saveProfile();
-  printProfile();
+    // Varianz berechnen
+    uint32_t fsum = 0, asum = 0;
+    for (int i = 0; i < 4; i++) { fsum += freqs[i]; asum += amps[i]; }
+    uint16_t favg = fsum / 4;
+    uint16_t aavg = asum / 4;
+
+    uint32_t fvar = 0, avar = 0;
+    for (int i = 0; i < 4; i++) {
+        int df = freqs[i] - favg;
+        int da = amps[i] - aavg;
+        fvar += df * df;
+        avar += da * da;
+    }
+    uint16_t freqVar = (uint16_t)sqrt(fvar / 4.0) * 100;
+    uint16_t ampVar  = (uint16_t)sqrt(avar / 4.0) * 100;
+
+    // 4. Validierung
+    bool valid = (freq > 20 && freq < 500 && amplitude > 300 && freqVar < 200);
+
+    // 5. Speichern
+    strlcpy(profile.name, toolName, sizeof(profile.name));
+    profile.freqHz    = (uint16_t)freq;
+    profile.amplitude = amplitude;
+    profile.freqVar   = freqVar;
+    profile.ampVar    = ampVar;
+    profile.valid     = valid;
+
+    Serial.printf("[LEARN] %s → %d Hz ±%d, Amp %d.%02d ±%d\n",
+        profile.name,
+        profile.freqHz,
+        profile.freqVar,
+        profile.amplitude / 100, profile.amplitude % 100,
+        profile.ampVar
+    );
+
+    return valid;
 }
 
-bool ADXL::movementDetected() {
-  if (!profile.valid) return false;
-
-  float buf[SAMPLES];
-  int cnt;
-  collect(buf, cnt, 1000);
-
-  float f = findFrequency(buf, cnt);
-  float a = rms(buf, cnt);
-
-  bool match = fabs(f - profile.freq) < profile.freq * profile.var / 100 &&
-               a > profile.amp * 0.7;
-
-  if (match) Serial.printf("ERKANNT: %.1f Hz (Soll: %.1f)\n", f, profile.freq);
-  return match;
+void ADXL::saveProfile()
+{
+    char json[256];
+    snprintf(json, sizeof(json),
+        "{\"name\":\"%s\",\"freq\":%d,\"amp\":%d,\"fvar\":%d,\"avar\":%d,\"valid\":%d}",
+        profile.name,
+        profile.freqHz,
+        profile.amplitude,
+        profile.freqVar,
+        profile.ampVar,
+        profile.valid
+    );
+    config.setValue("VIB_Profile", json, true);
+    Serial.println(F("[SAVE] Profil gespeichert"));
 }
 
-void ADXL::saveProfile() {
-  //EEPROM.put(0, profile);
-  //EEPROM.commit();
+bool ADXL::loadProfile()
+{
+    const char* json = config.getProfile();
+    if (!json || strlen(json) < 20) return false;
+
+    // Einfaches Parsen mit sscanf
+    char name[16];
+    int f, a, fv, av, v;
+    if (sscanf(json, "{\"name\":\"%15[^\"]\",\"freq\":%d,\"amp\":%d,\"fvar\":%d,\"avar\":%d,\"valid\":%d}",
+               name, &f, &a, &fv, &av, &v) == 6) {
+        strlcpy(profile.name, name, sizeof(profile.name));
+        profile.freqHz = f;
+        profile.amplitude = a;
+        profile.freqVar = fv;
+        profile.ampVar = av;
+        profile.valid = v;
+        Serial.printf("[LOAD] %s geladen\n", profile.name);
+        return true;
+    }
+    return false;
 }
 
-void ADXL::loadProfile() {
-  //EEPROM.get(0, profile);
-  //if (profile.freq < 10 || profile.freq > 200) profile.valid = false;
+void ADXL::printProfile() const
+{
+    DynamicJsonDocument doc(512);
+    JsonObject root = doc.to<JsonObject>();
+
+    // ── Metadaten ─────────────────────────────────────
+    root["tool"]        = profile.name;
+    root["valid"]       = profile.valid;
+    root["learnedAt"]   = millis();                    // optional: Zeitstempel
+
+    // ── Physikalische Kennwerte ───────────────────────
+    JsonObject freq = root.createNestedObject("frequency");
+    freq["hz"]          = profile.freqHz;
+    freq["tolerance"]   = profile.freqVar / 100.0f;    // als float
+
+    JsonObject amp = root.createNestedObject("amplitude");
+    amp["value"]        = profile.amplitude / 100.0f;  // 23.45
+    amp["tolerance"]    = profile.ampVar / 100.0f;
+
+    // ── Rohdaten (optional ein-/ausblendbar) ──────────
+    // JsonArray samples = root.createNestedArray("rawSamples");
+    // for (uint16_t i = 0; i < profile.sampleCount; i++)
+    //     samples.add(profile.samples[i]);
+
+    // ── Ausgabe ───────────────────────────────────────
+    serializeJsonPretty(root, Serial);
+    Serial.println();  // Leerzeile für sauberen Cut&Paste
 }
 
-void ADXL::printProfile() {
-  DynamicJsonDocument doc(200);
-  doc["tool"] = "Schleifer";
-  doc["freq"] = round(profile.freq * 10)/10;
-  doc["amp"] = round(profile.amp);
-  doc["var"] = round(profile.var * 10)/10;
-  serializeJsonPretty(doc, Serial);
-  Serial.println();
+bool ADXL::isRunning()
+{
+    if (!profile.valid) return false;
+
+    int16_t test[64];
+    if (!readSamples(test, 64, 2000)) return false;
+
+    float freq = detectDominantFrequency(test, 64, 500);
+    float rms = 0;
+    for (int i = 0; i < 64; i++) rms += test[i] * test[i];
+    rms = sqrt(rms / 64) * 100;
+
+    bool freqOk = abs((int)freq - profile.freqHz) <= (profile.freqVar + 30);
+    bool ampOk  = abs((int)rms - profile.amplitude) <= (profile.ampVar + 200);
+
+    return freqOk && ampOk;
+}
+
+float ADXL::detectDominantFrequency(const int16_t* samples, int n, int sampleRate)
+{
+    float maxMag = 0;
+    float bestFreq = 0;
+    for (int k = 5; k < 100; k++) {  // 50..1000 Hz
+        float freq = k * sampleRate / (float)n;
+        float cosVal = cos(2 * PI * k / n);
+        float sinVal = sin(2 * PI * k / n);
+        float Q1 = 0, Q2 = 0;
+        for (int i = 0; i < n; i++) {
+            float Q0 = samples[i] + 2 * cosVal * Q1 - Q2;
+            Q2 = Q1; Q1 = Q0;
+        }
+        float mag = sqrt(Q1*Q1 + Q2*Q2 - 2*Q1*Q2*cosVal);
+        if (mag > maxMag) { maxMag = mag; bestFreq = freq; }
+    }
+    return bestFreq;
+}
+
+// ADXL.cpp – füge diese Methode in deine Klasse ein
+bool ADXL::readSamples(int16_t* buffer, uint16_t count, uint32_t sampleDelayUs)
+{
+    if (!buffer || count == 0 || count > 1024) return false;
+
+    // ADXL345 Register
+    const uint8_t REG_DATA = 0x32;   // DATAX0 (6 Byte ab hier)
+
+    for (uint16_t i = 0; i < count; ++i) {
+        uint8_t raw[6];
+        if (!i2cRead(REG_DATA, raw, 6)) {
+            Serial.println(F("[ADXL] I2C Fehler beim Lesen"));
+            return false;
+        }
+
+        // ADXL345 liefert 10-Bit signed, little-endian
+        int16_t x = (int16_t)(raw[1] << 8) | raw[0];
+        int16_t y = (int16_t)(raw[3] << 8) | raw[2];
+        int16_t z = (int16_t)(raw[5] << 8) | raw[4];
+
+        // Wir nutzen die **stärkste Achse** → wie ein echter Vibrationssensor
+        int16_t mag = abs(x);
+        if (abs(y) > mag) mag = abs(y);
+        if (abs(z) > mag) mag = abs(z);
+
+        buffer[i] = mag;
+
+        if (sampleDelayUs > 0) {
+            uint32_t start = micros();
+            while (micros() - start < sampleDelayUs) {
+                yield();  // ESP32 bleibt responsiv
+            }
+        }
+    }
+
+    return true;
+}
+
+// In ADXL.cpp – einmalig
+bool ADXL::i2cRead(uint8_t reg, uint8_t* data, uint8_t len)
+{
+    Wire.beginTransmission(ADDR);  // 0x53
+    Wire.write(reg);
+    if (Wire.endTransmission(false) != 0) return false;  // repeated start
+
+    Wire.requestFrom(ADDR, len);
+    if (Wire.available() < len) return false;
+
+    for (uint8_t i = 0; i < len; ++i)
+        data[i] = Wire.read();
+
+    return true;
 }
 
 float ADXL::getX() {

@@ -5,7 +5,7 @@
 Web::Web() : isUpdating(false) {}
 
 void Web::setup() {
-    version = "0.11";
+    version = "0.13";
     server.on("/ota", HTTP_GET, [this](AsyncWebServerRequest *request){
         wifi.resetTimeout();
         String html = "<html><body><h1>OTA Update</h1>";
@@ -25,7 +25,10 @@ void Web::setup() {
         html += "<li><b>0.9</b> 2025-11-02: Hysterese von 20 bei Displayflip.</li>";         
         html += "<li>                       Absaugungstoggle bei Klick<1s.</li>";      
         html += "<li><b>0.10</b> 2025-11-03: ADXL lernt.</li>";  
-        html += "<li><b>0.11</b> 2025-11-04:VerbindungsSensor nach ADXL konsolidiert.</li>";         
+        html += "<li><b>0.11</b> 2025-11-04:VerbindungsSensor nach ADXL konsolidiert.</li>";      
+        html += "<li>                       Profildaten lad- und speicherbar.</li>";   
+        html += "<li><b>0.12</b> 2025-11-05:Kommandozeilenmodus hinzugefuegt.</li>";        
+        html += "<li><b>0.13</b> 2025-11-07:Profilspeicherung in CFG.</li>";  
         html += "</ul>";
         html += "<a href='/'>Back</a></body></html>";
         request->send(200, "text/html", html);
@@ -66,6 +69,7 @@ void Web::setup() {
       html += "SSID: <input type='text' name='ssid' value='" + String(config.getSSID()) + "'><br>";
       html += "Pass: <input type='text' name='pass' value='" + String(config.getPass()) + "'><br>";
       html += "Idle Time (s): <input type='number' name='idleTime' value='" + String(config.getIdleTime()) + "'><br>";
+      html += "Profile: <input type='text' name='profile' value='" + String(config.getProfile()) + "'><br>";
       html += "<input type='submit' value='Save'></form>";
       html += "<a href='/ota'>OTA Update</a></body></html>";
       request->send(200, "text/html", html);
@@ -84,6 +88,9 @@ void Web::setup() {
       if (request->hasParam("sensorId", true)) {
         config.setValue("sensorId", request->getParam("sensorId", true)->value(), false);
       }      
+      if (request->hasParam("profile", true)) {
+        config.setValue("profile", request->getParam("profile", true)->value(), false);
+      }    
       config.save();
       request->send(200, "text/html", "<html><body><h1>Config saved</h1><a href='/'>Back</a></body></html>");
       debugPrint(DEBUG_WIFI, "Config updated via web");

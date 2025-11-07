@@ -12,9 +12,11 @@ private:
   const char* PASS_KEY = "pass";
   const char* IDLE_KEY = "idleTime";
   const char* SENSOR_KEY = "sensorId";
+  const char* PROFILE_KEY = "profile";
 
   String ssid;
   String pass;
+  String profile;
   unsigned long idleTime; //in Sekunden
 
   bool initializeFS();
@@ -26,6 +28,7 @@ public:
   bool save();
   const char* getSSID() const;
   const char* getPass() const;
+  const char* getProfile() const;
   const char* load(const String& key);
   bool setValue(const String& key, const String& value, bool saveNow = true);
 };

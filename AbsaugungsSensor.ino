@@ -106,9 +106,7 @@ void loop() {
         if(pressDuration < maxShortPressTime) {
             debugPrint(DEBUG_SWITCH, "\nSchalte Absaugung um");
             absaugung.toggle();
-        }/* else {
-            debugPrint(DEBUG_SWITCH, "Schalter wurde <maxShortPressTime betaetigt, ignoriere...");
-        }*/
+        }
     } 
 
     wifi.loop();
@@ -152,4 +150,94 @@ void loop() {
     }
 
     oled.updateScreen();
+
+    commandLine();
+}
+
+void commandLine() {
+  if(Serial.available()) {
+      String cmd = Serial.readStringUntil('\n'); 
+      Serial.print(F("Echo: "));
+      Serial.println(cmd);
+      String msg = String((char*)0);
+      msg.reserve(32);
+      if(cmd.startsWith(F("restart wifi"))) {      
+        //myWifi.reconnect();
+      } else if(cmd.startsWith(F("restart esp"))) {      
+        msg = F("Restarting ESP...");
+        Serial.println(msg);
+        ESP.restart();
+      } else if(cmd.startsWith(F("show heap"))) {
+        Serial.print(F("Free heap: "));
+        Serial.println(ESP.getFreeHeap()); 
+      } else if(cmd.startsWith(F("config load"))) {
+        config.load();
+      } else if(cmd.startsWith(F("config save"))) {
+        config.save();
+      }  else if(cmd.startsWith(F("config set"))) {
+        String keyVal = cmd.substring(10); //alles hinter 'set'
+        keyVal.trim();
+        //config.set(keyVal);
+      } else if(cmd.startsWith(F("config persist"))) {
+        String keyVal = cmd.substring(14); //alles hinter 'persist'
+        keyVal.trim();
+        //String key = config.getValue(keyVal, ':', 0);
+        //String val = config.getValue(keyVal, ':', 1);
+        //config.save(key,val);
+      } else if(cmd.startsWith(F("adxl learn"))) {
+        String werkzeug = cmd.substring(10);
+        adxl.learn(werkzeug.c_str());
+      } else if(cmd.startsWith(F("adxl save"))) {
+        adxl.saveProfile();
+      } else if(cmd.startsWith(F("adxl print"))) {
+        adxl.printProfile();
+      } else if(cmd.startsWith(F("config show"))) {
+        String key = cmd.substring(11); //alles hinter 'show'
+        const char* val = config.load(key);
+        Serial.println(val);
+      } else if(cmd.startsWith(F("cmd"))) {  
+        String nrStr = cmd.substring(3);
+        nrStr.trim();
+        int nr = nrStr.toInt();
+        switch(nr) {
+          case 0:
+            Serial.println(F("serialSBMS.flush();"));
+            break;
+          case 1:
+            Serial.println(F("Serial.println(serialSBMS.available());"));
+            break;             
+          default:
+            Serial.println("Kein Kommando mit dieser Nummer gefunden");
+        }
+        
+      } else if(cmd.startsWith(F("test wifi"))) { 
+        bool ok = WiFi.status() == WL_CONNECTED;
+        Serial.print(F("Wifi status: "));
+        Serial.println(ok);
+      } else if(cmd.startsWith(F("verbose"))) { 
+        esp_log_level_set("*", ESP_LOG_VERBOSE);
+      } else {
+        Serial.println(F("Available commands:"));
+        Serial.println(F(" - restart wifi  :: restarting Wifi connection"));
+        Serial.println(F(" - restart esp   :: restarting whole ESP32"));
+        Serial.println(F(" - test  on|off :: enable/disable test simulation"));
+        Serial.println(F(" - debug  on|off :: enable/disable debug"));        
+        Serial.println(F(" - cmd NR :: Kommando mit der u.a. Nummer ausfuehren"));
+        Serial.println(F(" -      0 :: serialSBMS.flush();"));
+        Serial.println(F(" -      1 :: Serial.println(serialSBMS.available());"));       
+        Serial.println(F(" - adxl learn :: Lernmodus an"));
+        Serial.println(F(" - config load|save :: Schreiben/Lesen der Konfig aus LITTLEFS"));
+        Serial.println(F(" - config set key:value :: Hinzufuegen/aendern eines Konfigwertes (ohne Speichern!), z.B. socLimit"));
+        Serial.println(F(" - config persist key:value :: Speichern/aendern eines Konfigwertes (mit Speichern!), z.B. socLimit"));        
+        Serial.println(F(" - config show key :: Ausgabe des gespeicherten Values von 'key' auf Serial"));
+        Serial.println(F(" - show heap :: Schreibe den noch verfuegbaren Heap in die Ausgabe"));
+        Serial.println(F(" - test wifi :: Verbindungsstatus von Wifi ausgeben"));
+        Serial.println(F(" - verbose :: Aktiviert ESP verbose logging ( esp_log_level_set('*', ESP_LOG_VERBOSE) )"));
+        Serial.println(F(" - print :: Schreibe einige abgeleitete Werte auf den Bildschirm"));     
+        return;
+      }
+
+
+      Serial.println(msg); 
+  }
 }

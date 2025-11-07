@@ -43,7 +43,7 @@ bool CFG::load() {
     pass = doc[PASS_KEY].as<String>();
     idleTime = doc[IDLE_KEY] | 60; // Default: 60s    
     SENSOR_ID = doc[SENSOR_KEY];
-    debugPrint(DEBUG_CONFIG, "Config loaded: SSID=" + ssid + ", Pass=" + pass + ", idleTime=" + idleTime + ", SensorId=" + SENSOR_ID);
+    debugPrint(DEBUG_CONFIG, "Config loaded: SSID=" + ssid + ", Pass=" + pass + ", idleTime=" + idleTime + ", SensorId=" + SENSOR_ID + ", Profile=" + profile);
   } else {
     Serial.println("Config file invalid, keeping current values");
     file.close();
@@ -69,6 +69,7 @@ bool CFG::save() {
   doc[PASS_KEY] = pass;
   doc[IDLE_KEY] = idleTime; 
   doc[SENSOR_KEY] = SENSOR_ID;
+  doc[PROFILE_KEY] = profile;
 
   String jsonOutput;
   serializeJson(doc, jsonOutput);
@@ -91,6 +92,10 @@ const char* CFG::getSSID() const {
 
 const char* CFG::getPass() const {
   return pass.c_str();
+}
+
+const char* CFG::getProfile() const {
+  return profile.c_str();
 }
 
 const char* CFG::load(const String& key) {
@@ -138,6 +143,8 @@ bool CFG::setValue(const String& key, const String& value, bool saveNow) {
     idleTime = value.toInt();
   } else if (key == SENSOR_KEY) { 
     SENSOR_ID = value.toInt();
+  } else if (key == PROFILE_KEY) { 
+    profile = value;
   } else {
     JsonDocument doc;
     File file = LittleFS.open(CFG_FILE, "r");
