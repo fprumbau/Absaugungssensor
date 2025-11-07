@@ -121,6 +121,8 @@ float ADXL::findFrequency(float samples[], int n) {
 
 bool ADXL::learn(const char* toolName)
 {
+    Serial.printf("Sammle %d Samples @ %d Hz...\n", count, RATE);
+
     const uint16_t SAMPLE_TIME_MS = 1000;
     const uint16_t SAMPLE_RATE_HZ = 500;
     const uint16_t N = SAMPLE_RATE_HZ;
