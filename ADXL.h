@@ -22,7 +22,7 @@ public:
   void sleep(); // Neu: ADXL in Schlafmodus versetzen
   bool isInitialized() const { return initialized; }
   float getX();
-  bool learn(const char* toolName); // 10s Lernen → JSON
+  void learn(const char* toolName); // 10s Lernen → JSON
   bool isRunning();
   bool loadProfile();
   void saveProfile();

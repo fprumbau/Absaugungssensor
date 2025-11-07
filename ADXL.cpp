@@ -1,8 +1,10 @@
 #include "ADXL.h"
 
 #define ADDR 0x53
-#define SAMPLES 128
-#define RATE 50 // 20ms pro Sample → 50 Hz → STABIL!
+#define SAMPLES 64    // statt 500 → 64 Samples = 1,28s @ 50 Hz → PERFEKT!
+#define RATE 50       // 20ms pro Sample → 50 Hz → STABIL!
+#define SAMPLES_PER_SEG 64      // ← HIER HER!
+#define SEG_DURATION_MS 1000
 
 ADXL::ADXL() : initialized(false) {}
 
@@ -92,9 +94,9 @@ void ADXL::collect(float samples[], int &count, int ms) {
     if (readRaw(x, y, z)) {
       samples[count++] = (z * 0.0039) - 1.0; //9.81;  // nur Z, Grav abziehen
     }
-    // KEIN delay(1000/RATE) mehr!
-    // I2C ist langsam genug!
-    //delay(1000 / RATE);
+    // HIER WAR DER FEHLER:
+    // delay(1000 / RATE);  // 20ms → zu langsam!
+    yield();
   }
 }
 
@@ -119,77 +121,62 @@ float ADXL::findFrequency(float samples[], int n) {
   return bestLag ? (float)RATE / bestLag : 0;
 }
 
-bool ADXL::learn(const char* toolName)
-{
-    Serial.printf("Sammle %d Samples @ %d Hz...\n", count, RATE);
+void ADXL::learn(const char* toolName) {
+    Serial.printf("LERNE 10s: %s\n", toolName);
+    strncpy(profile.name, toolName, 15);
+    profile.name[15] = '\0';
 
-    const uint16_t SAMPLE_TIME_MS = 1000;
-    const uint16_t SAMPLE_RATE_HZ = 500;
-    const uint16_t N = SAMPLE_RATE_HZ;
+    const int SEGMENTS = 10;
+    float freqs[SEGMENTS] = {0}, amps[SEGMENTS] = {0};
+    int valid = 0;
 
-    int16_t raw[N];
-    if (!readSamples(raw, N, 1000000 / SAMPLE_RATE_HZ)) {
-        Serial.println(F("Fehler beim Aufnehmen"));
-        return false;
+    for (int seg = 0; seg < SEGMENTS; seg++) {
+        float samples[SAMPLES_PER_SEG];
+        int count;
+        collect(samples, count, SEG_DURATION_MS);
+
+        if (count < 30) {
+            Serial.println("Stille → Lernen beendet.");
+            break;
+        }
+
+        float f = findFrequency(samples, count);
+        float a = rms(samples, count);
+
+        if (a > 80 && f > 20 && f < 120) {
+            freqs[valid] = f;
+            amps[valid++] = a;
+            Serial.printf("Segment %d: %.1f Hz, %.0f mg\n", seg + 1, f, a);
+        }
+        delay(100);
     }
 
-    // 1. FFT für Grundfrequenz
-    float freq = detectDominantFrequency(raw, N, SAMPLE_RATE_HZ);
-    
-    // 2. Amplitude (RMS)
-    float rms = 0;
-    for (int i = 0; i < N; i++) rms += raw[i] * raw[i];
-    rms = sqrt(rms / N);
-    uint16_t amplitude = (uint16_t)(rms * 100);
-
-    // 3. Varianz über 4 × 250ms-Blöcke
-    uint16_t freqs[4] = {0};
-    uint16_t amps[4]  = {0};
-    for (int b = 0; b < 4; b++) {
-        int start = b * (N/4);
-        freqs[b] = (uint16_t)detectDominantFrequency(&raw[start], N/4, SAMPLE_RATE_HZ);
-        float blockRms = 0;
-        for (int i = 0; i < N/4; i++) blockRms += raw[start+i] * raw[start+i];
-        blockRms = sqrt(blockRms / (N/4));
-        amps[b] = (uint16_t)(blockRms * 100);
+    if (valid < 2) {
+        Serial.println("Kein Profil erkannt!");
+        profile.valid = false;
+        return;
     }
 
-    // Varianz berechnen
-    uint32_t fsum = 0, asum = 0;
-    for (int i = 0; i < 4; i++) { fsum += freqs[i]; asum += amps[i]; }
-    uint16_t favg = fsum / 4;
-    uint16_t aavg = asum / 4;
+    float sumF = 0, sumA = 0;
+    for (int i = 0; i < valid; i++) { sumF += freqs[i]; sumA += amps[i]; }
+    float avgF = sumF / valid;
+    float avgA = sumA / valid;
 
-    uint32_t fvar = 0, avar = 0;
-    for (int i = 0; i < 4; i++) {
-        int df = freqs[i] - favg;
-        int da = amps[i] - aavg;
-        fvar += df * df;
-        avar += da * da;
+    float varF = 0, varA = 0;
+    for (int i = 0; i < valid; i++) {
+        varF += sq(freqs[i] - avgF);
+        varA += sq(amps[i] - avgA);
     }
-    uint16_t freqVar = (uint16_t)sqrt(fvar / 4.0) * 100;
-    uint16_t ampVar  = (uint16_t)sqrt(avar / 4.0) * 100;
 
-    // 4. Validierung
-    bool valid = (freq > 20 && freq < 500 && amplitude > 300 && freqVar < 200);
+    profile.freqHz   = (uint16_t)(avgF * 1 + 0.5);
+    profile.amplitude = (uint16_t)(avgA * 100 + 0.5);
+    profile.freqVar  = valid > 1 ? (uint16_t)(sqrt(varF/(valid-1)) * 100 + 0.5) : 100;
+    profile.ampVar   = valid > 1 ? (uint16_t)(sqrt(varA/(valid-1)) / avgA * 10000 + 0.5) : 2000;
+    profile.valid    = true;
 
-    // 5. Speichern
-    strlcpy(profile.name, toolName, sizeof(profile.name));
-    profile.freqHz    = (uint16_t)freq;
-    profile.amplitude = amplitude;
-    profile.freqVar   = freqVar;
-    profile.ampVar    = ampVar;
-    profile.valid     = valid;
-
-    Serial.printf("[LEARN] %s → %d Hz ±%d, Amp %d.%02d ±%d\n",
-        profile.name,
-        profile.freqHz,
-        profile.freqVar,
-        profile.amplitude / 100, profile.amplitude % 100,
-        profile.ampVar
-    );
-
-    return valid;
+    saveProfile();
+    printProfile();
+    Serial.println("PROFIL GESPEICHERT!");
 }
 
 void ADXL::saveProfile()
@@ -305,6 +292,9 @@ bool ADXL::readSamples(int16_t* buffer, uint16_t count, uint32_t sampleDelayUs)
     const uint8_t REG_DATA = 0x32;   // DATAX0 (6 Byte ab hier)
 
     for (uint16_t i = 0; i < count; ++i) {
+
+        Serial.printf("Sample %d Samples @ %d Hz...\n", count, RATE);
+
         uint8_t raw[6];
         if (!i2cRead(REG_DATA, raw, 6)) {
             Serial.println(F("[ADXL] I2C Fehler beim Lesen"));
