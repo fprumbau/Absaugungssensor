@@ -5,7 +5,7 @@
 Web::Web() : isUpdating(false) {}
 
 void Web::setup() {
-    version = "0.13";
+    version = "0.14";
     server.on("/ota", HTTP_GET, [this](AsyncWebServerRequest *request){
         wifi.resetTimeout();
         String html = "<html><body><h1>OTA Update</h1>";
@@ -29,6 +29,7 @@ void Web::setup() {
         html += "<li>                       Profildaten lad- und speicherbar.</li>";   
         html += "<li><b>0.12</b> 2025-11-05:Kommandozeilenmodus hinzugefuegt.</li>";        
         html += "<li><b>0.13</b> 2025-11-07:Profilspeicherung in CFG.</li>";  
+        html += "<li><b>0.14</b> 2025-11-16:Fix Displayorientation.</li>"; 
         html += "</ul>";
         html += "<a href='/'>Back</a></body></html>";
         request->send(200, "text/html", html);

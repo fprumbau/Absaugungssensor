@@ -75,12 +75,12 @@ void Display::updateScreen() {
     if(val>0.05) {
       if(flipped) {
         flipped=false;
-        setDisplayOrientation(true);
+        setDisplayOrientation(!flipped);
       } 
     } else if (val<-0.05) {
       if(!flipped) {
         flipped=true;
-        setDisplayOrientation(false);
+        setDisplayOrientation(!flipped);
       }
     }
     oled.clear();
